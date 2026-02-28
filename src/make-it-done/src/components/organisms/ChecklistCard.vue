@@ -46,10 +46,14 @@ function cancelAddItem(): void {
   newItemText.value = ''
 }
 
-function onAddItemKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter') { e.preventDefault(); confirmAddItem() }
-  else if (e.key === 'Escape') { cancelAddItem() }
+function makeKeydownHandler(onEnter: () => void, onEscape: () => void) {
+  return (e: KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); onEnter() }
+    else if (e.key === 'Escape') { onEscape() }
+  }
 }
+
+const onAddItemKeydown = makeKeydownHandler(confirmAddItem, cancelAddItem)
 
 // ── Edit item ────────────────────────────────────────────────────────────────
 const editingItemId = ref<string | null>(null)
@@ -83,14 +87,11 @@ function cancelEditItem(): void {
   editingItemText.value = ''
 }
 
-function onEditItemKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter') { e.preventDefault(); confirmEditItem() }
-  else if (e.key === 'Escape') { cancelEditItem() }
-}
+const onEditItemKeydown = makeKeydownHandler(confirmEditItem, cancelEditItem)
 
 // ── Misc ─────────────────────────────────────────────────────────────────────
 const displayTitle = computed(() => props.checklist.runLabel ?? props.checklist.title)
-const doneCount = computed(() => props.checklist.items.filter(i => i.done).length)
+const doneCount = computed(() => props.checklist.items.reduce((n, i) => n + (i.done ? 1 : 0), 0))
 </script>
 
 <template>

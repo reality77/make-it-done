@@ -19,7 +19,7 @@ const {
   activeChecklists,
   templates,
   archivedChecklists,
-  allChecklists,
+  getChecklist,
   createChecklist,
   updateChecklist,
   deleteChecklist,
@@ -37,7 +37,7 @@ function openCreateForm(kind: 'one-time' | 'template'): void {
 }
 
 function openEditForm(checklistId: string): void {
-  const found = allChecklists.value.find(c => c.id === checklistId)
+  const found = getChecklist(checklistId)
   if (!found) return
   formState.value = {
     checklist: found,
@@ -49,15 +49,15 @@ function handleFormSave(payload: {
   id: string | null
   kind: ChecklistKind
   title: string
-  items: { text: string; done: boolean }[]
+  items: { id: string | null; text: string; done: boolean }[]
 }): void {
   if (payload.id === null) {
-    createChecklist(payload.kind, payload.title, payload.items)
+    createChecklist(payload.kind, payload.title, payload.items.map(({ text, done }) => ({ text, done })))
   } else {
     updateChecklist(payload.id, {
       title: payload.title,
       items: payload.items.map(i => ({
-        id: crypto.randomUUID(),
+        id: i.id ?? crypto.randomUUID(),
         text: i.text,
         done: i.done,
       })),
@@ -120,6 +120,7 @@ function handleRunTemplate(checklistId: string): void {
 
   <ChecklistForm
     v-if="formState !== null"
+    :key="formState.checklist?.id ?? 'new'"
     :checklist="formState.checklist"
     :defaultKind="formState.defaultKind"
     @save="handleFormSave"

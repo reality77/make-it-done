@@ -14,19 +14,19 @@ const emit = defineEmits<{
     id: string | null
     kind: ChecklistKind
     title: string
-    items: { text: string; done: boolean }[]
+    items: { id: string | null; text: string; done: boolean }[]
   }): void
   (e: 'cancel'): void
 }>()
 
 const localTitle = ref(props.checklist?.title ?? '')
 const localKind = ref<ChecklistKind>(props.checklist?.kind ?? props.defaultKind)
-const localItems = ref<{ text: string; done: boolean }[]>(
-  props.checklist?.items.map(i => ({ text: i.text, done: i.done })) ?? [],
+const localItems = ref<{ id: string | null; text: string; done: boolean }[]>(
+  props.checklist?.items.map(i => ({ id: i.id, text: i.text, done: i.done })) ?? [],
 )
 
 function addItem(): void {
-  localItems.value.push({ text: '', done: false })
+  localItems.value.push({ id: null, text: '', done: false })
 }
 
 function removeItem(index: number): void {

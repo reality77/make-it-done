@@ -60,8 +60,6 @@ const archivedChecklists = computed(() =>
     .sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? ''))
 )
 
-const allChecklists = computed(() => checklists.value)
-
 // Exposed functions
 
 function createChecklist(
@@ -130,7 +128,8 @@ function unarchiveChecklist(id: string): void {
 function runTemplate(templateId: string): Checklist {
   const template = findChecklist(templateId)
   if (!template) throw new Error(`Template ${templateId} not found`)
-  const runCount = checklists.value.filter(c => c.templateId === templateId).length
+  let runCount = 0
+  for (const c of checklists.value) if (c.templateId === templateId) runCount++
   const run: Checklist = {
     id: crypto.randomUUID(),
     kind: 'run',
@@ -177,7 +176,7 @@ export function useChecklists() {
     activeChecklists,
     templates,
     archivedChecklists,
-    allChecklists,
+    getChecklist: findChecklist,
     createChecklist,
     updateChecklist,
     deleteChecklist,

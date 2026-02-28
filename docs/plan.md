@@ -361,7 +361,7 @@ All composable calls are wired here; views and cards emit upward.
 
 ### Verification Checklist
 
-- [ ] `npm run build` passes with zero errors
+- [x] `npm run build` passes with zero errors
 - [ ] Create a one-time checklist → check all items → card moves to Archive automatically
 - [ ] Create a template → Run → run instance appears in Active, template stays in Templates
 - [ ] Run same template again → label shows Run #2
