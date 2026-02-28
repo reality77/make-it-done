@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-zinc-950 text-zinc-100 min-h-screen;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  @apply max-w-2xl mx-auto px-4 py-8;
+}
