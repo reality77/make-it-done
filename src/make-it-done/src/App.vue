@@ -5,6 +5,8 @@ import { useChecklists } from './composables/useChecklists'
 import TabBar from './components/organisms/TabBar.vue'
 import ChecklistForm from './components/organisms/ChecklistForm.vue'
 import ActiveView from './components/templates/ActiveView.vue'
+import TemplatesView from './components/templates/TemplatesView.vue'
+import ArchiveView from './components/templates/ArchiveView.vue'
 
 const activeTab = ref<'active' | 'templates' | 'archive'>('active')
 
@@ -15,6 +17,7 @@ const formState = ref<{
 
 const {
   activeChecklists,
+  templates,
   archivedChecklists,
   allChecklists,
   createChecklist,
@@ -22,6 +25,8 @@ const {
   deleteChecklist,
   toggleItem,
   archiveChecklist,
+  unarchiveChecklist,
+  runTemplate,
   addItem,
   updateItemText,
   removeItem,
@@ -60,6 +65,11 @@ function handleFormSave(payload: {
   }
   formState.value = null
 }
+
+function handleRunTemplate(checklistId: string): void {
+  runTemplate(checklistId)
+  activeTab.value = 'active'
+}
 </script>
 
 <template>
@@ -87,13 +97,25 @@ function handleFormSave(payload: {
       @create="openCreateForm('one-time')"
     />
 
-    <p v-else-if="activeTab === 'templates'" class="text-center text-zinc-600 py-12 text-sm">
-      Templates — coming soon.
-    </p>
+    <TemplatesView
+      v-else-if="activeTab === 'templates'"
+      :templates="templates"
+      @toggle-item="toggleItem"
+      @add-item="addItem"
+      @update-item-text="updateItemText"
+      @remove-item="removeItem"
+      @edit="openEditForm"
+      @delete="deleteChecklist"
+      @run="handleRunTemplate"
+      @create="openCreateForm('template')"
+    />
 
-    <p v-else-if="activeTab === 'archive'" class="text-center text-zinc-600 py-12 text-sm">
-      Archive — coming soon.
-    </p>
+    <ArchiveView
+      v-else-if="activeTab === 'archive'"
+      :checklists="archivedChecklists"
+      @unarchive="unarchiveChecklist"
+      @delete="deleteChecklist"
+    />
   </main>
 
   <ChecklistForm

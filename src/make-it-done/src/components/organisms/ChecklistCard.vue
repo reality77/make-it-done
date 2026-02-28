@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
-import type { Checklist } from '../../types'
+import type { Checklist, ChecklistItem } from '../../types'
 import AppBadge from '../atoms/AppBadge.vue'
 import AppButton from '../atoms/AppButton.vue'
 
@@ -20,14 +20,14 @@ const emit = defineEmits<{
 }>()
 
 const isExpanded = ref(true)
+
+// ── Add item ────────────────────────────────────────────────────────────────
 const isAddingItem = ref(false)
 const newItemText = ref('')
 const addItemInputEl = ref<HTMLInputElement | null>(null)
 
-const displayTitle = computed(() => props.checklist.runLabel ?? props.checklist.title)
-const doneCount = computed(() => props.checklist.items.filter(i => i.done).length)
-
 async function startAddItem(): Promise<void> {
+  if (editingItemId.value) cancelEditItem()
   isExpanded.value = true
   isAddingItem.value = true
   await nextTick()
@@ -36,10 +36,7 @@ async function startAddItem(): Promise<void> {
 
 function confirmAddItem(): void {
   const text = newItemText.value.trim()
-  if (!text) {
-    cancelAddItem()
-    return
-  }
+  if (!text) { cancelAddItem(); return }
   emit('add-item', props.checklist.id, text)
   newItemText.value = ''
 }
@@ -50,13 +47,50 @@ function cancelAddItem(): void {
 }
 
 function onAddItemKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    confirmAddItem()
-  } else if (e.key === 'Escape') {
-    cancelAddItem()
-  }
+  if (e.key === 'Enter') { e.preventDefault(); confirmAddItem() }
+  else if (e.key === 'Escape') { cancelAddItem() }
 }
+
+// ── Edit item ────────────────────────────────────────────────────────────────
+const editingItemId = ref<string | null>(null)
+const editingItemText = ref('')
+
+// Focuses and selects the edit input as soon as it mounts
+const vFocus = {
+  mounted(el: Element) {
+    const input = el as HTMLInputElement
+    input.focus()
+    input.select()
+  },
+}
+
+function startEditItem(item: ChecklistItem): void {
+  if (isAddingItem.value) cancelAddItem()
+  editingItemId.value = item.id
+  editingItemText.value = item.text
+}
+
+function confirmEditItem(): void {
+  if (!editingItemId.value) return
+  const text = editingItemText.value.trim()
+  if (text) emit('update-item-text', props.checklist.id, editingItemId.value, text)
+  editingItemId.value = null
+  editingItemText.value = ''
+}
+
+function cancelEditItem(): void {
+  editingItemId.value = null
+  editingItemText.value = ''
+}
+
+function onEditItemKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Enter') { e.preventDefault(); confirmEditItem() }
+  else if (e.key === 'Escape') { cancelEditItem() }
+}
+
+// ── Misc ─────────────────────────────────────────────────────────────────────
+const displayTitle = computed(() => props.checklist.runLabel ?? props.checklist.title)
+const doneCount = computed(() => props.checklist.items.filter(i => i.done).length)
 </script>
 
 <template>
@@ -121,12 +155,34 @@ function onAddItemKeydown(e: KeyboardEvent): void {
           class="accent-violet-500 w-4 h-4 cursor-pointer shrink-0"
           @change="$emit('toggle-item', checklist.id, item.id)"
         />
+
+        <!-- Inline edit input -->
+        <input
+          v-if="editingItemId === item.id"
+          v-focus
+          v-model="editingItemText"
+          class="bg-transparent border-b border-zinc-700 focus:border-violet-500 outline-none text-zinc-100 text-sm py-0.5 transition-colors flex-1"
+          @keydown="onEditItemKeydown"
+          @blur="confirmEditItem"
+        />
+
+        <!-- Display text (click to edit) -->
         <span
-          class="text-sm flex-1"
+          v-else
+          class="text-sm flex-1 cursor-text min-w-0 truncate"
           :class="item.done ? 'line-through text-zinc-600' : 'text-zinc-300'"
+          @click="startEditItem(item)"
         >
           {{ item.text }}
         </span>
+
+        <!-- Remove button (visible on group hover) -->
+        <button
+          class="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all text-xs shrink-0 cursor-pointer"
+          @click="$emit('remove-item', checklist.id, item.id)"
+        >
+          ✕
+        </button>
       </div>
 
       <!-- Inline new-item input -->
