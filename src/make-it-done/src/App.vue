@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import type { Checklist, ChecklistKind } from './types'
 import { useChecklists } from './composables/useChecklists'
 import TabBar from './components/organisms/TabBar.vue'
@@ -14,6 +14,8 @@ const formState = ref<{
   checklist: Checklist | null
   defaultKind: 'one-time' | 'template'
 } | null>(null)
+
+const newlyCreatedId = ref<string | null>(null)
 
 const {
   activeChecklists,
@@ -45,14 +47,19 @@ function openEditForm(checklistId: string): void {
   }
 }
 
-function handleFormSave(payload: {
+async function handleFormSave(payload: {
   id: string | null
   kind: ChecklistKind
   title: string
   items: { id: string | null; text: string; done: boolean }[]
-}): void {
+}): Promise<void> {
   if (payload.id === null) {
-    createChecklist(payload.kind, payload.title, payload.items.map(({ text, done }) => ({ text, done })))
+    const created = createChecklist(payload.kind, payload.title, payload.items.map(({ text, done }) => ({ text, done })))
+    newlyCreatedId.value = created.id
+    if (payload.kind === 'template') activeTab.value = 'templates'
+    formState.value = null
+    await nextTick()
+    newlyCreatedId.value = null
   } else {
     updateChecklist(payload.id, {
       title: payload.title,
@@ -62,8 +69,8 @@ function handleFormSave(payload: {
         done: i.done,
       })),
     })
+    formState.value = null
   }
-  formState.value = null
 }
 
 function handleRunTemplate(checklistId: string): void {
@@ -87,6 +94,7 @@ function handleRunTemplate(checklistId: string): void {
     <ActiveView
       v-if="activeTab === 'active'"
       :checklists="activeChecklists"
+      :focus-checklist-id="newlyCreatedId"
       @toggle-item="toggleItem"
       @add-item="addItem"
       @update-item-text="updateItemText"
@@ -95,11 +103,13 @@ function handleRunTemplate(checklistId: string): void {
       @delete="deleteChecklist"
       @archive="archiveChecklist"
       @create="openCreateForm('one-time')"
+      @create-template="openCreateForm('template')"
     />
 
     <TemplatesView
       v-else-if="activeTab === 'templates'"
       :templates="templates"
+      :focus-checklist-id="newlyCreatedId"
       @toggle-item="toggleItem"
       @add-item="addItem"
       @update-item-text="updateItemText"
