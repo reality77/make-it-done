@@ -28,7 +28,7 @@ defineEmits<{
       <AppButton variant="primary" @click="$emit('create')">+ New Checklist</AppButton>
     </div>
 
-    <p v-if="checklists.length === 0" class="text-center text-zinc-600 py-12 text-sm">
+    <p v-if="checklists.length === 0" class="text-center text-zinc-600 py-12">
       No active checklists. Create one to get started.
     </p>
 

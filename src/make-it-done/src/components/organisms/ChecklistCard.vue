@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
-import type { Checklist, ChecklistItem } from '../../types'
+import type { Checklist } from '../../types'
 import AppBadge from '../atoms/AppBadge.vue'
 import AppButton from '../atoms/AppButton.vue'
+import ItemRow from '../molecules/ItemRow.vue'
 
 const props = defineProps<{
   checklist: Checklist
@@ -22,13 +23,16 @@ const emit = defineEmits<{
 
 const isExpanded = ref(true)
 
+// ── Item rows ─────────────────────────────────────────────────────────────────
+const itemRowRefs = ref<InstanceType<typeof ItemRow>[]>([])
+
 // ── Add item ────────────────────────────────────────────────────────────────
 const isAddingItem = ref(false)
 const newItemText = ref('')
 const addItemInputEl = ref<HTMLInputElement | null>(null)
 
 async function startAddItem(): Promise<void> {
-  if (editingItemId.value) cancelEditItem()
+  itemRowRefs.value.forEach(r => r.cancelEdit())
   isExpanded.value = true
   isAddingItem.value = true
   await nextTick()
@@ -59,40 +63,6 @@ function makeKeydownHandler(onEnter: () => void, onEscape: () => void) {
 }
 
 const onAddItemKeydown = makeKeydownHandler(confirmAddItem, cancelAddItem)
-
-// ── Edit item ────────────────────────────────────────────────────────────────
-const editingItemId = ref<string | null>(null)
-const editingItemText = ref('')
-
-// Focuses and selects the edit input as soon as it mounts
-const vFocus = {
-  mounted(el: Element) {
-    const input = el as HTMLInputElement
-    input.focus()
-    input.select()
-  },
-}
-
-function startEditItem(item: ChecklistItem): void {
-  if (isAddingItem.value) cancelAddItem()
-  editingItemId.value = item.id
-  editingItemText.value = item.text
-}
-
-function confirmEditItem(): void {
-  if (!editingItemId.value) return
-  const text = editingItemText.value.trim()
-  if (text) emit('update-item-text', props.checklist.id, editingItemId.value, text)
-  editingItemId.value = null
-  editingItemText.value = ''
-}
-
-function cancelEditItem(): void {
-  editingItemId.value = null
-  editingItemText.value = ''
-}
-
-const onEditItemKeydown = makeKeydownHandler(confirmEditItem, cancelEditItem)
 
 // ── Misc ─────────────────────────────────────────────────────────────────────
 const displayTitle = computed(() => props.checklist.runLabel ?? props.checklist.title)
@@ -125,13 +95,13 @@ watch(isComplete, (val) => {
     <!-- Header -->
     <div class="flex items-center gap-2 min-w-0">
       <button
-        class="text-zinc-600 hover:text-zinc-300 transition-colors text-xs w-4 shrink-0 text-left"
+        class="text-zinc-600 hover:text-zinc-300 transition-colors text-lg w-4 shrink-0 text-left"
         @click="isExpanded = !isExpanded"
       >
         {{ isExpanded ? '▾' : '▸' }}
       </button>
 
-      <span class="font-medium text-zinc-100 truncate flex-1 text-sm">{{ displayTitle }}</span>
+      <span class="font-medium text-lg text-zinc-100 truncate flex-1">{{ displayTitle }}</span>
 
       <AppBadge :kind="checklist.kind" />
 
@@ -183,46 +153,16 @@ watch(isComplete, (val) => {
 
     <!-- Body -->
     <div v-if="isExpanded" class="mt-3 pl-5">
-      <div
+      <ItemRow
         v-for="item in checklist.items"
         :key="item.id"
-        class="flex items-center gap-2 py-1 group"
-      >
-        <input
-          type="checkbox"
-          :checked="item.done"
-          class="accent-violet-500 w-4 h-4 cursor-pointer shrink-0"
-          @change="$emit('toggle-item', checklist.id, item.id)"
-        />
-
-        <!-- Inline edit input -->
-        <input
-          v-if="editingItemId === item.id"
-          v-focus
-          v-model="editingItemText"
-          class="bg-transparent border-b border-zinc-700 focus:border-violet-500 outline-none text-zinc-100 text-sm py-0.5 transition-colors flex-1"
-          @keydown="onEditItemKeydown"
-          @blur="confirmEditItem"
-        />
-
-        <!-- Display text (click to edit) -->
-        <span
-          v-else
-          class="text-sm flex-1 cursor-text min-w-0 truncate"
-          :class="item.done ? 'line-through text-zinc-600' : 'text-zinc-300'"
-          @click="startEditItem(item)"
-        >
-          {{ item.text }}
-        </span>
-
-        <!-- Remove button (visible on group hover) -->
-        <button
-          class="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all text-xs shrink-0 cursor-pointer"
-          @click="$emit('remove-item', checklist.id, item.id)"
-        >
-          ✕
-        </button>
-      </div>
+        ref="itemRowRefs"
+        :item="item"
+        @toggle="$emit('toggle-item', checklist.id, item.id)"
+        @update-text="(text) => $emit('update-item-text', checklist.id, item.id, text)"
+        @remove="$emit('remove-item', checklist.id, item.id)"
+        @start-edit="cancelAddItem"
+      />
 
       <!-- Inline new-item input -->
       <div v-if="isAddingItem" class="flex items-center gap-2 py-1 mt-1">
@@ -230,7 +170,7 @@ watch(isComplete, (val) => {
           ref="addItemInputEl"
           v-model="newItemText"
           placeholder="New item…"
-          class="bg-transparent border-b border-zinc-700 focus:border-violet-500 outline-none text-zinc-100 text-sm py-0.5 placeholder:text-zinc-600 transition-colors flex-1"
+          class="bg-transparent border-b border-zinc-700 focus:border-violet-500 outline-none text-zinc-100 py-0.5 placeholder:text-zinc-600 transition-colors flex-1"
           @keydown="onAddItemKeydown"
           @blur="cancelAddItem"
         />

@@ -12,7 +12,7 @@ defineEmits<{
 
 <template>
   <button
-    class="pb-2.5 text-sm font-medium transition-colors cursor-pointer"
+    class="pb-2.5 font-medium transition-colors cursor-pointer"
     :class="active ? 'text-white border-b-2 border-violet-500' : 'text-zinc-400 hover:text-zinc-200'"
     @click="$emit('select')"
   >

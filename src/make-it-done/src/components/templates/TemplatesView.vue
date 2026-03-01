@@ -26,7 +26,7 @@ defineEmits<{
       <AppButton variant="primary" @click="$emit('create')">+ New Template</AppButton>
     </div>
 
-    <p v-if="templates.length === 0" class="text-center text-zinc-600 py-12 text-sm">
+    <p v-if="templates.length === 0" class="text-center text-zinc-600 py-12">
       No templates yet. Create one to reuse a checklist multiple times.
     </p>
 

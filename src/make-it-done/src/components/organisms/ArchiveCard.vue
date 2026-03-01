@@ -26,19 +26,19 @@ function formatDate(iso: string | null): string {
     <!-- Header -->
     <div class="flex items-center gap-2 min-w-0">
       <button
-        class="text-zinc-700 hover:text-zinc-400 transition-colors text-xs w-4 shrink-0 text-left"
+        class="text-zinc-700 hover:text-zinc-400 transition-colors w-4 shrink-0 text-left"
         @click="isExpanded = !isExpanded"
       >
         {{ isExpanded ? '▾' : '▸' }}
       </button>
 
-      <span class="text-sm text-zinc-500 truncate flex-1">
+      <span class="text-zinc-500 truncate flex-1">
         {{ checklist.runLabel ?? checklist.title }}
       </span>
 
       <AppBadge :kind="checklist.kind" />
 
-      <span v-if="checklist.archivedAt" class="text-xs text-zinc-700 shrink-0">
+      <span v-if="checklist.archivedAt" class="text-zinc-700 shrink-0">
         {{ formatDate(checklist.archivedAt) }}
       </span>
 
@@ -62,7 +62,7 @@ function formatDate(iso: string | null): string {
           class="accent-violet-500 w-4 h-4 shrink-0 opacity-40 cursor-not-allowed"
         />
         <span
-          class="text-sm text-zinc-600"
+          class="text-zinc-600"
           :class="item.done ? 'line-through' : ''"
         >
           {{ item.text }}
