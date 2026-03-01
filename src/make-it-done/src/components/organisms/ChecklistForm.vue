@@ -65,49 +65,39 @@ onUnmounted(() => window.removeEventListener('keydown', onEsc))
   >
     <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-md">
       <h2 class="text-base font-semibold text-zinc-100 mb-5">
-        {{ checklist ? 'Edit checklist' : 'New checklist' }}
+        {{ checklist ? 'Edit checklist' : (defaultKind === 'template' ? 'New template' : 'New checklist') }}
       </h2>
-
-      <!-- Kind selector (only when creating) -->
-      <div v-if="!checklist" class="flex gap-4 mb-5">
-        <label class="flex items-center gap-2 cursor-pointer text-sm text-zinc-400">
-          <input type="radio" v-model="localKind" value="one-time" class="accent-violet-500" />
-          One-time
-        </label>
-        <label class="flex items-center gap-2 cursor-pointer text-sm text-zinc-400">
-          <input type="radio" v-model="localKind" value="template" class="accent-violet-500" />
-          Template
-        </label>
-      </div>
 
       <!-- Title -->
       <div class="mb-5">
         <AppInput
           v-model="localTitle"
-          placeholder="Checklist title"
+          :placeholder="defaultKind === 'template' ? 'Template name' : 'Checklist name'"
           :autofocus="true"
           class="text-base"
           @keydown="(e: KeyboardEvent) => e.key === 'Enter' && submit()"
         />
       </div>
 
-      <!-- Items -->
-      <div class="space-y-2 mb-3">
-        <div
-          v-for="(item, i) in localItems"
-          :key="i"
-          class="flex items-center gap-2"
-        >
-          <AppInput
-            v-model="item.text"
-            placeholder="Item"
-            @keydown="(e: KeyboardEvent) => onItemKeydown(e, i)"
-          />
-          <AppButton variant="icon" @click="removeItem(i)">✕</AppButton>
+      <!-- Items (edit mode only) -->
+      <template v-if="checklist">
+        <div class="space-y-2 mb-3">
+          <div
+            v-for="(item, i) in localItems"
+            :key="i"
+            class="flex items-center gap-2"
+          >
+            <AppInput
+              v-model="item.text"
+              placeholder="Item"
+              @keydown="(e: KeyboardEvent) => onItemKeydown(e, i)"
+            />
+            <AppButton variant="icon" @click="removeItem(i)">✕</AppButton>
+          </div>
         </div>
-      </div>
 
-      <AppButton variant="ghost" class="mb-5" @click="addItem">+ Add item</AppButton>
+        <AppButton variant="ghost" class="mb-5" @click="addItem">+ Add item</AppButton>
+      </template>
 
       <!-- Actions -->
       <div class="flex justify-end gap-3">

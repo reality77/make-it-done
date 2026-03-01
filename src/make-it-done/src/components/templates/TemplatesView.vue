@@ -5,6 +5,7 @@ import AppButton from '../atoms/AppButton.vue'
 
 defineProps<{
   templates: Checklist[]
+  focusChecklistId?: string | null
 }>()
 
 defineEmits<{
@@ -34,6 +35,7 @@ defineEmits<{
         v-for="template in templates"
         :key="template.id"
         :checklist="template"
+        :auto-focus-add-item="focusChecklistId === template.id"
         @toggle-item="(cId, iId) => $emit('toggle-item', cId, iId)"
         @add-item="(cId, text) => $emit('add-item', cId, text)"
         @update-item-text="(cId, iId, text) => $emit('update-item-text', cId, iId, text)"

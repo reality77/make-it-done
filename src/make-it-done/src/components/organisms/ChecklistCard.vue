@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import type { Checklist, ChecklistItem } from '../../types'
 import AppBadge from '../atoms/AppBadge.vue'
 import AppButton from '../atoms/AppButton.vue'
 
 const props = defineProps<{
   checklist: Checklist
+  autoFocusAddItem?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -45,6 +46,10 @@ function cancelAddItem(): void {
   isAddingItem.value = false
   newItemText.value = ''
 }
+
+onMounted(() => {
+  if (props.autoFocusAddItem) startAddItem()
+})
 
 function makeKeydownHandler(onEnter: () => void, onEscape: () => void) {
   return (e: KeyboardEvent) => {

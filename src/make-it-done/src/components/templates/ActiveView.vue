@@ -5,6 +5,7 @@ import AppButton from '../atoms/AppButton.vue'
 
 defineProps<{
   checklists: Checklist[]
+  focusChecklistId?: string | null
 }>()
 
 defineEmits<{
@@ -16,12 +17,14 @@ defineEmits<{
   (e: 'delete', checklistId: string): void
   (e: 'archive', checklistId: string): void
   (e: 'create'): void
+  (e: 'create-template'): void
 }>()
 </script>
 
 <template>
   <div>
-    <div class="flex justify-end mb-4">
+    <div class="flex justify-end items-center gap-2 mb-4">
+      <AppButton variant="ghost" @click="$emit('create-template')">+ New Template</AppButton>
       <AppButton variant="primary" @click="$emit('create')">+ New Checklist</AppButton>
     </div>
 
@@ -34,6 +37,7 @@ defineEmits<{
         v-for="checklist in checklists"
         :key="checklist.id"
         :checklist="checklist"
+        :auto-focus-add-item="focusChecklistId === checklist.id"
         @toggle-item="(cId, iId) => $emit('toggle-item', cId, iId)"
         @add-item="(cId, text) => $emit('add-item', cId, text)"
         @update-item-text="(cId, iId, text) => $emit('update-item-text', cId, iId, text)"
