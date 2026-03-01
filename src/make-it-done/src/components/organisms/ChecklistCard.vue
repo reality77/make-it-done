@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import type { Checklist, ChecklistItem } from '../../types'
 import AppBadge from '../atoms/AppBadge.vue'
 import AppButton from '../atoms/AppButton.vue'
@@ -99,12 +99,23 @@ const isComplete = computed(
 const progressPct = computed(() =>
   totalCount.value > 0 ? Math.round((doneCount.value / totalCount.value) * 100) : 0
 )
+
+const animateComplete = ref(false)
+watch(isComplete, (val) => {
+  if (val) {
+    animateComplete.value = true
+    setTimeout(() => { animateComplete.value = false }, 600)
+  }
+})
 </script>
 
 <template>
   <div
     class="border rounded-xl p-4 transition-colors"
-    :class="isComplete ? 'bg-green-950 border-green-700' : 'bg-zinc-900 border-zinc-800'"
+    :class="[
+      isComplete ? 'bg-green-950 border-green-700' : 'bg-zinc-900 border-zinc-800',
+      animateComplete ? 'card-complete' : '',
+    ]"
   >
     <!-- Header -->
     <div class="flex items-center gap-2 min-w-0">
@@ -119,11 +130,13 @@ const progressPct = computed(() =>
 
       <AppBadge :kind="checklist.kind" />
 
-      <span
-        v-if="isComplete"
-        class="text-green-400 shrink-0 text-base"
-        title="All done!"
-      >✓</span>
+      <Transition name="check">
+        <span
+          v-if="isComplete"
+          class="text-green-400 shrink-0 text-base"
+          title="All done!"
+        >✓</span>
+      </Transition>
 
       <!-- Actions -->
       <div class="flex items-center gap-1 shrink-0">
@@ -228,3 +241,25 @@ const progressPct = computed(() =>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Card pulse on completion */
+@keyframes card-pulse {
+  0%   { transform: scale(1);     box-shadow: 0 0 0 0   rgba(134, 239, 172, 0.35); }
+  40%  { transform: scale(1.018); box-shadow: 0 0 0 8px rgba(134, 239, 172, 0); }
+  100% { transform: scale(1);     box-shadow: 0 0 0 0   rgba(134, 239, 172, 0); }
+}
+.card-complete {
+  animation: card-pulse 0.55s ease-out;
+}
+
+/* Checkmark spring pop-in */
+.check-enter-active {
+  animation: check-bounce 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+@keyframes check-bounce {
+  0%   { transform: scale(0) rotate(-30deg); opacity: 0; }
+  60%  { transform: scale(1.3)  rotate(5deg);  opacity: 1; }
+  100% { transform: scale(1)   rotate(0deg); }
+}
+</style>
