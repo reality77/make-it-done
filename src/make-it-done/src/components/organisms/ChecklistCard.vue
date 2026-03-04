@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
+import { useSwipe } from '@vueuse/core'
 import type { Checklist } from '../../types'
 import { useChecklistStore, countItems, countDone } from '../../stores/checklists'
 import KindBadge from '../molecules/KindBadge.vue'
@@ -111,15 +112,56 @@ watch(isComplete, (val) => {
     setTimeout(() => { animateComplete.value = false }, 600)
   }
 })
+
+// ── Swipe-to-archive (mobile) ────────────────────────────────────────────────
+const cardEl = ref<HTMLElement | null>(null)
+const swipeOffset = ref(0)
+const ARCHIVE_THRESHOLD = 100 // px
+
+const { isSwiping: isCardSwiping, direction: cardDirection, lengthX: cardLengthX } = useSwipe(cardEl, {
+  threshold: 10,
+  onSwipe() {
+    if (props.checklist.kind === 'template') return
+    if (cardDirection.value === 'left') {
+      swipeOffset.value = Math.max(-cardLengthX.value, -(ARCHIVE_THRESHOLD * 1.4))
+    }
+  },
+  onSwipeEnd() {
+    if (props.checklist.kind !== 'template' && swipeOffset.value <= -ARCHIVE_THRESHOLD) {
+      emit('archive', props.checklist.id)
+    }
+    swipeOffset.value = 0
+  },
+})
+
+const cardStyle = computed(() =>
+  swipeOffset.value !== 0 ? { transform: `translateX(${swipeOffset.value}px)` } : {}
+)
+const archiveProgress = computed(() =>
+  Math.min(-swipeOffset.value / ARCHIVE_THRESHOLD, 1)
+)
 </script>
 
 <template>
+  <div ref="cardEl" class="relative overflow-hidden rounded-xl">
+    <!-- Yellow archive hint revealed as card slides left -->
+    <div
+      v-if="checklist.kind !== 'template'"
+      class="absolute inset-0 bg-yellow-400 flex items-center justify-end px-4 pointer-events-none"
+      :style="{ opacity: archiveProgress * 0.9 }"
+    >
+      <span class="text-yellow-950 text-sm font-medium">🗄 Archive</span>
+    </div>
+
+  <!-- Sliding card content -->
   <div
     class="border rounded-xl p-4 transition-colors"
     :class="[
-      isComplete ? 'bg-green-950 border-green-700' : 'bg-zinc-900 border-zinc-800',
+      isComplete ? 'bg-yellow-950 border-yellow-400' : 'bg-zinc-900 border-zinc-800',
       animateComplete ? 'card-complete' : '',
+      !isCardSwiping ? 'transition-transform duration-200' : '',
     ]"
+    :style="cardStyle"
   >
     <!-- Header -->
     <div class="flex items-center gap-2 min-w-0">
@@ -156,7 +198,7 @@ watch(isComplete, (val) => {
         <AppButton
           v-if="checklist.kind !== 'template'"
           variant="ghost"
-          class="font-bold"
+          class="font-bold hidden sm:inline-flex"
           title="Archive"
           @click="$emit('archive', checklist.id)"
         >
@@ -239,6 +281,7 @@ watch(isComplete, (val) => {
         </button>
       </div>
     </div>
+  </div>
   </div>
 </template>
 

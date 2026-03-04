@@ -11,7 +11,7 @@ import TasksView from './components/templates/TasksView.vue'
 import PasswordPrompt from './components/organisms/PasswordPrompt.vue'
 import { storeToRefs } from 'pinia'
 
-const activeTab = ref<'active' | 'templates' | 'archive' | 'tasks'>('active')
+const activeTab = ref<'active' | 'templates' | 'archive' | 'tasks'>('tasks')
 
 const newlyCreatedId = ref<string | null>(null)
 
@@ -45,7 +45,7 @@ const {
 
 // ── Task manager state ────────────────────────────────────────────────────────
 
-const currentTaskView = ref<TaskView>('week')
+const currentTaskView = ref<TaskView>('day')
 const reviewDismissed = ref(false)
 
 watch(weeklyReviewDue, (due) => {
@@ -133,33 +133,8 @@ const syncStatusTitles: Record<string, string> = {
   />
 
   <main>
-    <ActiveView
-      v-if="activeTab === 'active'"
-      :checklists="activeChecklists"
-      :focus-checklist-id="newlyCreatedId"
-      @delete="deleteChecklist"
-      @archive="archiveChecklist"
-      @create="(name) => handleCreateChecklist(name, 'one-time')"
-    />
-
-    <TemplatesView
-      v-else-if="activeTab === 'templates'"
-      :templates="templates"
-      :focus-checklist-id="newlyCreatedId"
-      @delete="deleteChecklist"
-      @run="handleRunTemplate"
-      @create="(name) => handleCreateChecklist(name, 'template')"
-    />
-
-    <ArchiveView
-      v-else-if="activeTab === 'archive'"
-      :checklists="archivedChecklists"
-      @unarchive="unarchiveChecklist"
-      @delete="deleteChecklist"
-    />
-
     <TasksView
-      v-else-if="activeTab === 'tasks'"
+      v-if="activeTab === 'tasks'"
       :weekly-review-due="weeklyReviewDue"
       :review-dismissed="reviewDismissed"
       :snoozed-items="snoozedItems"
@@ -185,6 +160,32 @@ const syncStatusTitles: Record<string, string> = {
       @dismiss-review="reviewDismissed = true"
       @clear="checklistStore.clearDayPlan()"
     />
+
+    <ActiveView
+      v-else-if="activeTab === 'active'"
+      :checklists="activeChecklists"
+      :focus-checklist-id="newlyCreatedId"
+      @delete="deleteChecklist"
+      @archive="archiveChecklist"
+      @create="(name) => handleCreateChecklist(name, 'one-time')"
+    />
+
+    <TemplatesView
+      v-else-if="activeTab === 'templates'"
+      :templates="templates"
+      :focus-checklist-id="newlyCreatedId"
+      @delete="deleteChecklist"
+      @run="handleRunTemplate"
+      @create="(name) => handleCreateChecklist(name, 'template')"
+    />
+
+    <ArchiveView
+      v-else-if="activeTab === 'archive'"
+      :checklists="archivedChecklists"
+      @unarchive="unarchiveChecklist"
+      @delete="deleteChecklist"
+    />
+
   </main>
 
   <PasswordPrompt v-if="loginPrompted" @cancel="loginPrompted = false" />

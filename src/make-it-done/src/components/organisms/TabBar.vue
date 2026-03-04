@@ -14,9 +14,9 @@ defineEmits<{
 
 <template>
   <div class="flex gap-6 border-b border-zinc-800 mb-6">
-    <TabItem label="Active" :active="activeTab === 'active'" @select="$emit('change', 'active')" />
-    <TabItem label="Templates" :active="activeTab === 'templates'" @select="$emit('change', 'templates')" />
-    <TabItem label="Archive" :active="activeTab === 'archive'" :count="archiveCount" @select="$emit('change', 'archive')" />
     <TabItem label="Tasks" :active="activeTab === 'tasks'" :dot="weeklyReviewDue" @select="$emit('change', 'tasks')" />
+    <TabItem label="Lists" :active="activeTab === 'active'" @select="$emit('change', 'active')" />
+    <TabItem label="Templates" :active="activeTab === 'templates'" @select="$emit('change', 'templates')" />
+    <TabItem label="Archives" :active="activeTab === 'archive'" :count="archiveCount" @select="$emit('change', 'archive')" />
   </div>
 </template>

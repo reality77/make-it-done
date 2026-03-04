@@ -5,7 +5,7 @@ export type ChecklistKind = 'one-time' | 'template' | 'run'
 export type TaskStatus   = 'active' | 'snoozed' | 'someday'
 export type TaskPriority = 'urgent' | 'important' | 'secondary'
 export type TaskEffort   = 'small' | 'medium' | 'large'
-export type TaskView     = 'day' | 'week'
+export type TaskView     = 'day' | 'week' | 'backlog'
 
 // ── Planning metadata (persisted globally) ────────────────────────────────────
 

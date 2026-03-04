@@ -155,9 +155,9 @@ const onAddGroupKeydown = makeKeydownHandler(confirmAddGroup, cancelAddGroup)
           ref="itemRowRefs"
           :item="node"
           :tracked="tracked"
-          @toggle="toggleItem(checklistId, node.id)"
-          @update-text="(text) => updateItemText(checklistId, node.id, text)"
-          @remove="removeItem(checklistId, node.id)"
+          @toggle="toggleItem({ checklistId, itemId: node.id })"
+          @update-text="(text) => updateItemText({ checklistId, itemId: node.id }, text)"
+          @remove="removeItem({ checklistId, itemId: node.id })"
           @start-edit="cancelAddItem"
         />
         <!-- Recursive: Vue resolves <ItemGroup> by this file's name -->

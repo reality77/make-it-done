@@ -3,6 +3,7 @@ import type { TrackedItemRef, TaskPriority, TaskEffort, TaskView, ChecklistItemI
 import WeeklyReviewPanel from '../organisms/WeeklyReviewPanel.vue'
 import DayView from '../organisms/DayView.vue'
 import WeekView from '../organisms/WeekView.vue'
+import TaskCard from '../molecules/TaskCard.vue'
 
 defineProps<{
   weeklyReviewDue: boolean
@@ -74,6 +75,15 @@ const emit = defineEmits<{
         >
           Week
         </button>
+        <button
+          class="px-3 py-1 rounded text-sm font-medium transition-colors cursor-pointer"
+          :class="currentView === 'backlog'
+            ? 'bg-zinc-700 text-zinc-100'
+            : 'text-zinc-400 hover:text-zinc-200'"
+          @click="$emit('change-view', 'backlog')"
+        >
+          Backlog
+        </button>
       </div>
     </div>
 
@@ -93,7 +103,7 @@ const emit = defineEmits<{
 
     <!-- Week view -->
     <WeekView
-      v-else
+      v-else-if="currentView === 'week'"
       :items-by-priority="itemsByPriority"
       @snooze="(id, date) => $emit('snooze', id, date)"
       @someday="(id) => $emit('someday', id)"
@@ -104,5 +114,61 @@ const emit = defineEmits<{
       @toggle-day="(id) => $emit('toggle-day', id)"
       @toggle-done="(id) => $emit('toggle-done', id)"
     />
+
+    <!-- Backlog view -->
+    <div v-else-if="currentView === 'backlog'" class="space-y-6">
+
+      <!-- Snoozed -->
+      <section>
+        <h3 class="text-sm font-semibold text-zinc-400 mb-2 flex items-center gap-2">
+          <span>💤 Snoozed</span>
+          <span class="text-zinc-600 font-normal">({{ snoozedItems.length }})</span>
+        </h3>
+        <div v-if="snoozedItems.length === 0" class="text-xs text-zinc-600 py-2 pl-4">No snoozed tasks.</div>
+        <div v-else class="space-y-0.5">
+          <TaskCard
+            v-for="ref in snoozedItems"
+            :key="ref.item.id"
+            :item="ref.item"
+            :checklist-id="ref.checklistId"
+            :checklist-title="ref.checklistTitle"
+            @toggle-done="(id) => $emit('toggle-done', id)"
+            @snooze="(id, date) => $emit('snooze', id, date)"
+            @someday="(id) => $emit('someday', id)"
+            @activate="(id) => $emit('activate', id)"
+            @delete="(id) => $emit('delete', id)"
+            @update-text="(id, text) => $emit('update-text', id, text)"
+            @update-priority="(id, p) => $emit('update-priority', id, p)"
+            @update-effort="(id, e) => $emit('update-effort', id, e)"
+          />
+        </div>
+      </section>
+
+      <!-- Someday -->
+      <section>
+        <h3 class="text-sm font-semibold text-zinc-400 mb-2 flex items-center gap-2">
+          <span>☁ Someday</span>
+          <span class="text-zinc-600 font-normal">({{ somedayItems.length }})</span>
+        </h3>
+        <div v-if="somedayItems.length === 0" class="text-xs text-zinc-600 py-2 pl-4">No someday tasks.</div>
+        <div v-else class="space-y-0.5">
+          <TaskCard
+            v-for="ref in somedayItems"
+            :key="ref.item.id"
+            :item="ref.item"
+            :checklist-id="ref.checklistId"
+            :checklist-title="ref.checklistTitle"
+            @toggle-done="(id) => $emit('toggle-done', id)"
+            @snooze="(id, date) => $emit('snooze', id, date)"
+            @someday="(id) => $emit('someday', id)"
+            @activate="(id) => $emit('activate', id)"
+            @delete="(id) => $emit('delete', id)"
+            @update-text="(id, text) => $emit('update-text', id, text)"
+            @update-priority="(id, p) => $emit('update-priority', id, p)"
+            @update-effort="(id, e) => $emit('update-effort', id, e)"
+          />
+        </div>
+      </section>
+    </div>
   </div>
 </template>
