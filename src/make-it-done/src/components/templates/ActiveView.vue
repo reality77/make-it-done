@@ -1,27 +1,44 @@
 <script setup lang="ts">
-import type { Checklist } from '../../types'
+import type { Checklist, ChecklistKind } from '../../types'
 import ChecklistCard from '../organisms/ChecklistCard.vue'
 import AppButton from '../atoms/AppButton.vue'
+import AppInput from '../atoms/AppInput.vue';
+import { ref } from 'vue';
 
 defineProps<{
   checklists: Checklist[]
   focusChecklistId?: string | null
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'edit', checklistId: string): void
   (e: 'delete', checklistId: string): void
   (e: 'archive', checklistId: string): void
-  (e: 'create'): void
-  (e: 'create-template'): void
+  (e: 'create', checklistName: string): void
 }>()
+
+const newChecklistName = ref('')
+
+function confirmNewChecklist(): void {
+  if (newChecklistName.value.trim()) {
+    emit('create', newChecklistName.value.trim())
+    newChecklistName.value = ''
+  }
+}
 </script>
 
 <template>
   <div>
-    <div class="flex justify-end items-center gap-2 mb-4">
-      <AppButton variant="ghost" @click="$emit('create-template')">+ New Template</AppButton>
-      <AppButton variant="primary" @click="$emit('create')">+ New Checklist</AppButton>
+    <div class="flex mb-4">
+      <form @submit.prevent="confirmNewChecklist" class="flex items-center gap-2 justify-end w-full">
+      <AppInput
+        v-model="newChecklistName"
+        placeholder="New checklist"
+        @blur="confirmNewChecklist">
+      </AppInput>
+
+      <AppButton v-if="newChecklistName" variant="primary" type="submit">Create</AppButton>
+      </form>
     </div>
 
     <p v-if="checklists.length === 0" class="text-center text-zinc-600 py-12">

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
-import type { Checklist, ChecklistKind, ChecklistNode } from './types'
+import type { Checklist, ChecklistKind } from './types'
 import { useChecklistStore } from './stores/checklists'
 import { useAuthStore } from './stores/auth'
 import TabBar from './components/organisms/TabBar.vue'
-import ChecklistForm from './components/organisms/ChecklistForm.vue'
 import ActiveView from './components/templates/ActiveView.vue'
 import TemplatesView from './components/templates/TemplatesView.vue'
 import ArchiveView from './components/templates/ArchiveView.vue'
@@ -73,36 +72,17 @@ function openEditForm(checklistId: string): void {
   }
 }
 
-async function handleFormSave(payload: {
-  id: string | null
-  kind: ChecklistKind
-  title: string
-  items: { id: string | null; type: 'item'; text: string; done: boolean }[]
-  nodes: ChecklistNode[] | null
-}): Promise<void> {
-  if (payload.id === null) {
+async function handleCreateChecklist(title: string, kind: ChecklistKind): Promise<void> {
     const created = createChecklist(
-      payload.kind,
-      payload.title,
-      payload.items.map(({ text, done }) => ({ type: 'item' as const, text, done })),
+      kind,
+      title,
+      []
     )
     newlyCreatedId.value = created.id
-    if (payload.kind === 'template') activeTab.value = 'templates'
+    if (kind === 'template') activeTab.value = 'templates'
     formState.value = null
     await nextTick()
     newlyCreatedId.value = null
-  } else {
-    updateChecklist(payload.id, {
-      title: payload.title,
-      items: payload.nodes ?? payload.items.map(i => ({
-        type: 'item' as const,
-        id: i.id ?? crypto.randomUUID(),
-        text: i.text,
-        done: i.done,
-      })),
-    })
-    formState.value = null
-  }
 }
 
 function handleRunTemplate(checklistId: string): void {
@@ -152,21 +132,18 @@ const syncStatusTitles: Record<string, string> = {
       v-if="activeTab === 'active'"
       :checklists="activeChecklists"
       :focus-checklist-id="newlyCreatedId"
-      @edit="openEditForm"
       @delete="deleteChecklist"
       @archive="archiveChecklist"
-      @create="openCreateForm('one-time')"
-      @create-template="openCreateForm('template')"
+      @create="(name) => handleCreateChecklist(name, 'one-time')"
     />
 
     <TemplatesView
       v-else-if="activeTab === 'templates'"
       :templates="templates"
       :focus-checklist-id="newlyCreatedId"
-      @edit="openEditForm"
       @delete="deleteChecklist"
       @run="handleRunTemplate"
-      @create="openCreateForm('template')"
+      @create="(name) => handleCreateChecklist(name, 'template')"
     />
 
     <ArchiveView
@@ -176,15 +153,6 @@ const syncStatusTitles: Record<string, string> = {
       @delete="deleteChecklist"
     />
   </main>
-
-  <ChecklistForm
-    v-if="formState !== null"
-    :key="formState.checklist?.id ?? 'new'"
-    :checklist="formState.checklist"
-    :defaultKind="formState.defaultKind"
-    @save="handleFormSave"
-    @cancel="formState = null"
-  />
 
   <PasswordPrompt v-if="loginPrompted" @cancel="loginPrompted = false" />
 </template>

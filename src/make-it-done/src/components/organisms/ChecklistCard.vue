@@ -13,7 +13,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'edit', checklistId: string): void
   (e: 'delete', checklistId: string): void
   (e: 'run', checklistId: string): void
   (e: 'archive', checklistId: string): void
@@ -143,29 +142,25 @@ watch(isComplete, (val) => {
       </Transition>
 
       <!-- Actions -->
-      <div class="flex items-center gap-1 shrink-0">
+      <div class="flex items-center gap-3 shrink-0">
         <AppButton
           v-if="checklist.kind === 'template'"
           variant="primary"
           @click="$emit('run', checklist.id)"
         >
-          Run
-        </AppButton>
-        <AppButton
-          v-if="checklist.kind !== 'run'"
-          variant="ghost"
-          @click="$emit('edit', checklist.id)"
-        >
-          Edit
+          ▷
         </AppButton>
         <AppButton
           v-if="checklist.kind !== 'template'"
           variant="ghost"
+          class="font-bold"
+          title="Archive"
           @click="$emit('archive', checklist.id)"
         >
-          Archive
+          🗄
         </AppButton>
-        <AppButton variant="danger" @click="$emit('delete', checklist.id)">Delete</AppButton>
+        <AppButton v-if="props.checklist.archived === true"
+          variant="danger" @click="$emit('delete', checklist.id)">Delete</AppButton>
       </div>
     </div>
 

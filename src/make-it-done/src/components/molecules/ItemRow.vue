@@ -84,7 +84,7 @@ const deleteProgress = computed(() =>
   <div ref="rowEl" class="relative overflow-hidden rounded">
     <!-- Red delete hint revealed as item slides right -->
     <div
-      class="absolute inset-0 bg-red-500 flex items-center px-3 pointer-events-none"
+      class="absolute inset-0 bg-red-400 flex items-center px-3 pointer-events-none"
       :style="{ opacity: deleteProgress * 0.85 }"
     >
       <span class="text-white text-xs font-medium">Delete</span>
