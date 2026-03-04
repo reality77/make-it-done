@@ -51,9 +51,9 @@ function confirmNewChecklist(): void {
         :key="checklist.id"
         :checklist="checklist"
         :auto-focus-add-item="focusChecklistId === checklist.id"
-        @edit="(id: string) => $emit('edit', id)"
-        @delete="(id: string) => $emit('delete', id)"
-        @archive="(id: string) => $emit('archive', id)"
+        @edit="(cId: string) => $emit('edit', cId)"
+        @delete="(cId: string) => $emit('delete', cId)"
+        @archive="(cId: string) => $emit('archive', cId)"
       />
     </div>
   </div>
