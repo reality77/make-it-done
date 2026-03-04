@@ -1,27 +1,27 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { pb } from '../lib/pocketbase'
+import { couchLogin, couchLogout, couchGetSession, ensureDatabase } from '../lib/couchdb'
 
 export const useAuthStore = defineStore('auth', () => {
-  const isAuthenticated = ref(pb.authStore.isValid)
+  const isAuthenticated = ref(false)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  // Bridge PocketBase's non-reactive auth state into Vue reactivity.
-  // Fires when token is set, refreshed, or cleared (including expiry).
-  pb.authStore.onChange(() => {
-    isAuthenticated.value = pb.authStore.isValid
-  })
-
   const userEmail = computed(
-    () => (import.meta.env.VITE_PB_USER_EMAIL as string | undefined) ?? 'user@make-it-done.app'
+    () => (import.meta.env.VITE_COUCH_USER as string | undefined) ?? 'admin'
   )
+
+  async function checkSession(): Promise<void> {
+    const name = await couchGetSession()
+    isAuthenticated.value = name !== null
+  }
 
   async function login(password: string): Promise<void> {
     isLoading.value = true
     error.value = null
     try {
-      await pb.collection('users').authWithPassword(userEmail.value, password)
+      await couchLogin(userEmail.value, password)
+      await ensureDatabase()
       isAuthenticated.value = true
     } catch {
       error.value = 'Invalid password. Please try again.'
@@ -31,9 +31,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function logout(): void {
-    pb.authStore.clear()
+    couchLogout()
     isAuthenticated.value = false
   }
 
-  return { isAuthenticated, isLoading, error, userEmail, login, logout }
+  return { isAuthenticated, isLoading, error, userEmail, login, logout, checkSession }
 })

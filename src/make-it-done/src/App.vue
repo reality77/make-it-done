@@ -55,6 +55,7 @@ watch(weeklyReviewDue, (due) => {
 onMounted(async () => {
   checklistStore.processDueSnoozed()
   checklistStore.refreshDayPlanIfStale()
+  await authStore.checkSession()
   if (authStore.isAuthenticated) {
     await checklistStore.initSync()
   }

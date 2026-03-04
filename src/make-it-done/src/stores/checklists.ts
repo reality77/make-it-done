@@ -12,13 +12,12 @@ import type {
   TaskEffort,
   TrackedItemRef,
 } from '../types'
-import { pb } from '../lib/pocketbase'
+import { localDB, createRemoteDB, checklistToDoc, docToChecklist } from '../lib/couchdb'
+import type { CouchDoc } from '../lib/couchdb'
 import { useAuthStore } from './auth'
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'make-it-done-v1'
-const PENDING_KEY = 'make-it-done-pending'
 const PLAN_META_KEY = 'make-it-done-plan-meta-v1'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -149,7 +148,6 @@ function migrateNodes(raw: unknown[]): ChecklistNode[] {
       text: String(node.text ?? ''),
       done: Boolean(node.done ?? false),
     }
-    // Carry over task fields if present
     if (node.priority) item.priority = node.priority as TaskPriority
     if (node.effort) item.effort = node.effort as TaskEffort
     if (node.status) item.status = node.status as 'active' | 'snoozed' | 'someday'
@@ -161,105 +159,6 @@ function migrateNodes(raw: unknown[]): ChecklistNode[] {
   })
 }
 
-// ── Storage load / persist ────────────────────────────────────────────────────
-
-function loadFromStorage(): Checklist[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as { checklists?: unknown[] }
-    return (parsed.checklists ?? []).map((c): Checklist => {
-      const cl = c as Record<string, unknown>
-      return {
-        id: String(cl.id),
-        kind: cl.kind as ChecklistKind,
-        title: String(cl.title ?? ''),
-        items: migrateNodes((cl.items as unknown[]) ?? []),
-        archived: Boolean(cl.archived ?? false),
-        createdAt: String(cl.createdAt ?? new Date().toISOString()),
-        archivedAt: cl.archivedAt ? String(cl.archivedAt) : null,
-        templateId: cl.templateId ? String(cl.templateId) : null,
-        runLabel: cl.runLabel ? String(cl.runLabel) : null,
-        tracked: Boolean(cl.tracked ?? false),
-        defaultPriority: (cl.defaultPriority as TaskPriority) ?? 'important',
-        defaultEffort: (cl.defaultEffort as TaskEffort) ?? 'medium',
-      }
-    })
-  } catch {
-    return []
-  }
-}
-
-function loadPendingFromStorage(): Set<string> {
-  try {
-    const raw = localStorage.getItem(PENDING_KEY)
-    if (!raw) return new Set()
-    return new Set(JSON.parse(raw) as string[])
-  } catch {
-    return new Set()
-  }
-}
-
-// ── PocketBase record shape ───────────────────────────────────────────────────
-
-interface PbRecord {
-  id: string
-  app_id: string
-  kind: ChecklistKind
-  title: string
-  items: unknown[]
-  archived: boolean
-  created_at: string
-  archived_at: string
-  template_id: string
-  run_label: string
-  tracked: boolean
-  default_priority: string
-  default_effort: string
-}
-
-function pbToChecklist(r: PbRecord): Checklist {
-  return {
-    id: r.app_id,
-    kind: r.kind,
-    title: r.title,
-    items: migrateNodes(Array.isArray(r.items) ? r.items : []),
-    archived: r.archived,
-    createdAt: r.created_at,
-    archivedAt: r.archived_at || null,
-    templateId: r.template_id || null,
-    runLabel: r.run_label || null,
-    tracked: Boolean(r.tracked ?? false),
-    defaultPriority: (r.default_priority as TaskPriority) || 'important',
-    defaultEffort: (r.default_effort as TaskEffort) || 'medium',
-  }
-}
-
-function checklistToPb(c: Checklist): Omit<PbRecord, 'id'> {
-  return {
-    app_id: c.id,
-    kind: c.kind,
-    title: c.title,
-    items: c.items,
-    archived: c.archived,
-    created_at: c.createdAt,
-    archived_at: c.archivedAt ?? '',
-    template_id: c.templateId ?? '',
-    run_label: c.runLabel ?? '',
-    tracked: c.tracked,
-    default_priority: c.defaultPriority,
-    default_effort: c.defaultEffort,
-  }
-}
-
-// ── Retry delays: 1s, 5s, 10s, then 60s repeating ───────────────────────────
-
-const RETRY_DELAYS = [1_000, 5_000, 10_000, 60_000]
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 // ── Sync status type ──────────────────────────────────────────────────────────
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'pending'
@@ -267,37 +166,65 @@ export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'pending'
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useChecklistStore = defineStore('checklists', () => {
-  const checklists = ref<Checklist[]>(loadFromStorage())
+  const checklists = ref<Checklist[]>([])
   const syncStatus = ref<SyncStatus>('offline')
-  const pendingSync = ref<Set<string>>(loadPendingFromStorage())
   const planMeta = ref<PlanMeta>(loadPlanMeta())
 
-  let unsubscribe: (() => void) | null = null
-  let retrying = false
+  // Cache of _rev values to avoid extra reads on each write
+  const revCache = new Map<string, string>()
 
-  // ── Persistence ─────────────────────────────────────────────────────────────
+  let syncHandler: PouchDB.Replication.Sync<CouchDoc> | null = null
+  let changesHandler: PouchDB.Core.Changes<CouchDoc> | null = null
 
-  function persist(): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ checklists: checklists.value }))
-  }
+  // ── Plan meta persistence ────────────────────────────────────────────────────
 
   function persistPlanMeta(): void {
     localStorage.setItem(PLAN_META_KEY, JSON.stringify(planMeta.value))
   }
 
-  function persistPending(): void {
-    localStorage.setItem(PENDING_KEY, JSON.stringify([...pendingSync.value]))
+  // ── PouchDB helpers ───────────────────────────────────────────────────────────
+
+  async function upsertChecklist(c: Checklist): Promise<void> {
+    const doc = checklistToDoc(c)
+    const rev = revCache.get(c.id)
+    try {
+      const result = await localDB.put(rev ? { ...doc, _rev: rev } : doc)
+      revCache.set(c.id, result.rev)
+    } catch (e) {
+      if ((e as PouchDB.Core.Error).status === 409) {
+        // Conflict: fetch fresh _rev and retry once
+        const existing = await localDB.get(c.id)
+        revCache.set(c.id, existing._rev)
+        const result = await localDB.put({ ...doc, _rev: existing._rev })
+        revCache.set(c.id, result.rev)
+      }
+    }
   }
 
-  function markPending(appId: string): void {
-    pendingSync.value.add(appId)
-    persistPending()
-    if (syncStatus.value === 'synced') syncStatus.value = 'pending'
+  async function removeFromLocal(id: string): Promise<void> {
+    const rev = revCache.get(id)
+    try {
+      if (rev) {
+        await localDB.remove(id, rev)
+      } else {
+        const doc = await localDB.get(id)
+        await localDB.remove(doc)
+      }
+      revCache.delete(id)
+    } catch { /* already gone */ }
   }
 
-  function clearPending(): void {
-    pendingSync.value.clear()
-    persistPending()
+  async function loadFromLocal(): Promise<void> {
+    const result = await localDB.allDocs<CouchDoc>({ include_docs: true })
+    checklists.value = result.rows
+      .filter(row => row.doc)
+      .map(row => {
+        revCache.set(row.id, row.value.rev)
+        const doc = row.doc!
+        // Run migration on items in case of old format
+        const migrated = { ...docToChecklist(doc), items: migrateNodes(doc.items as unknown[]) }
+        return migrated
+      })
   }
 
   // ── Computed views ───────────────────────────────────────────────────────────
@@ -324,7 +251,6 @@ export const useChecklistStore = defineStore('checklists', () => {
 
   // ── Task-tracking: computed views ──────────────────────────────────────────
 
-  /** Collect all items from tracked, non-archived, non-template checklists */
   function collectTrackedItems(): TrackedItemRef[] {
     const result: TrackedItemRef[] = []
     for (const cl of checklists.value) {
@@ -349,14 +275,12 @@ export const useChecklistStore = defineStore('checklists', () => {
     const today = todayDateString()
     const result: TrackedItemRef[] = []
 
-    // From non-archived tracked checklists: selected-for-today items and items completed today
     for (const r of trackedItems.value) {
       if ((r.item.status ?? 'active') !== 'active') continue
       if (r.item.selectedForToday && !r.item.done) result.push(r)
       else if (r.item.done && r.item.completedAt?.startsWith(today)) result.push(r)
     }
 
-    // From archived tracked checklists: items completed today (checklist was completed today)
     for (const cl of checklists.value) {
       if (!cl.tracked || !cl.archived || cl.kind === 'template') continue
       const title = cl.runLabel ?? cl.title
@@ -415,7 +339,6 @@ export const useChecklistStore = defineStore('checklists', () => {
     planMeta.value.dayPlanDate === todayDateString()
   )
 
-
   function clearDayPlan(): void {
     for (const r of trackedItems.value) {
       if (r.item.selectedForToday) {
@@ -436,7 +359,6 @@ export const useChecklistStore = defineStore('checklists', () => {
     cl.tracked = true
     cl.defaultPriority = defaultPriority
     cl.defaultEffort = defaultEffort
-    // Initialize task fields on existing items
     walkNodes(cl.items, n => {
       if (n.type === 'item') {
         n.priority = n.priority ?? defaultPriority
@@ -448,15 +370,13 @@ export const useChecklistStore = defineStore('checklists', () => {
         if (n.completedAt === undefined) n.completedAt = null
       }
     })
-    persist()
-    syncUpdate(cl)
+    void upsertChecklist(cl)
   }
 
   function disableTracking(checklistId: string): void {
     const cl = getChecklist(checklistId)
     if (!cl) return
     cl.tracked = false
-    // Strip task fields from items
     walkNodes(cl.items, n => {
       if (n.type === 'item') {
         delete n.priority
@@ -468,8 +388,7 @@ export const useChecklistStore = defineStore('checklists', () => {
         delete n.completedAt
       }
     })
-    persist()
-    syncUpdate(cl)
+    void upsertChecklist(cl)
   }
 
   function setItemPriority({ checklistId, itemId }: ChecklistItemId, priority: TaskPriority): void {
@@ -478,8 +397,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     const item = findItemDeep(cl.items, itemId)
     if (!item) return
     item.priority = priority
-    persist()
-    syncUpdate(cl)
+    void upsertChecklist(cl)
   }
 
   function setItemEffort({ checklistId, itemId }: ChecklistItemId, effort: TaskEffort): void {
@@ -488,8 +406,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     const item = findItemDeep(cl.items, itemId)
     if (!item) return
     item.effort = effort
-    persist()
-    syncUpdate(cl)
+    void upsertChecklist(cl)
   }
 
   function snoozeItem({ checklistId, itemId }: ChecklistItemId, until: string): void {
@@ -501,8 +418,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     item.snoozeUntil = until
     if (!item.snoozedAt) item.snoozedAt = new Date().toISOString()
     item.selectedForToday = false
-    persist()
-    syncUpdate(cl)
+    void upsertChecklist(cl)
   }
 
   function activateItem({ checklistId, itemId }: ChecklistItemId): void {
@@ -513,8 +429,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     item.status = 'active'
     item.snoozeUntil = null
     item.snoozedAt = null
-    persist()
-    syncUpdate(cl)
+    void upsertChecklist(cl)
   }
 
   function sendItemToSomeday({ checklistId, itemId }: ChecklistItemId): void {
@@ -526,8 +441,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     item.snoozeUntil = null
     item.snoozedAt = null
     item.selectedForToday = false
-    persist()
-    syncUpdate(cl)
+    void upsertChecklist(cl)
   }
 
   function toggleItemDayPlan({ checklistId, itemId }: ChecklistItemId): void {
@@ -537,9 +451,8 @@ export const useChecklistStore = defineStore('checklists', () => {
     if (!item || (item.status ?? 'active') !== 'active') return
     item.selectedForToday = !item.selectedForToday
     if (!planMeta.value.dayPlanDate) planMeta.value.dayPlanDate = todayDateString()
-    persist()
     persistPlanMeta()
-    syncUpdate(cl)
+    void upsertChecklist(cl)
   }
 
   function setDayPlan(itemKeys: Array<ChecklistItemId>): void {
@@ -556,10 +469,7 @@ export const useChecklistStore = defineStore('checklists', () => {
           }
         }
       })
-      if (changed) {
-        persist()
-        syncUpdate(cl)
-      }
+      if (changed) void upsertChecklist(cl)
     }
     planMeta.value.dayPlanDate = todayDateString()
     persistPlanMeta()
@@ -574,7 +484,6 @@ export const useChecklistStore = defineStore('checklists', () => {
         })
       }
       planMeta.value.dayPlanDate = null
-      persist()
       persistPlanMeta()
     }
   }
@@ -592,10 +501,7 @@ export const useChecklistStore = defineStore('checklists', () => {
           changed = true
         }
       })
-      if (changed) {
-        persist()
-        syncUpdate(cl)
-      }
+      if (changed) void upsertChecklist(cl)
     }
   }
 
@@ -633,176 +539,53 @@ export const useChecklistStore = defineStore('checklists', () => {
     return result
   }
 
-  // ── PocketBase sync helpers ──────────────────────────────────────────────────
+  // ── PouchDB sync ─────────────────────────────────────────────────────────────
 
-  async function getPbRecordId(appId: string): Promise<string | null> {
-    try {
-      const result = await pb.collection('checklists').getFirstListItem<PbRecord>(
-        `app_id="${appId}"`
-      )
-      return result.id
-    } catch {
-      return null
-    }
-  }
-
-  async function syncCreate(checklist: Checklist): Promise<void> {
-    const authStore = useAuthStore()
-    if (!authStore.isAuthenticated) return
-    try {
-      await pb.collection('checklists').create(checklistToPb(checklist))
-    } catch (e) {
-      console.warn('[sync] create failed for', checklist.id, e)
-      markPending(checklist.id)
-    }
-  }
-
-  async function syncUpdate(checklist: Checklist): Promise<void> {
-    const authStore = useAuthStore()
-    if (!authStore.isAuthenticated) return
-    try {
-      const pbId = await getPbRecordId(checklist.id)
-      if (pbId) {
-        await pb.collection('checklists').update(pbId, checklistToPb(checklist))
-      } else {
-        await pb.collection('checklists').create(checklistToPb(checklist))
+  function subscribeChanges(): void {
+    changesHandler = localDB.changes<CouchDoc>({
+      since: 'now',
+      live: true,
+      include_docs: true,
+    })
+    .on('change', (change) => {
+      if (change.deleted) {
+        checklists.value = checklists.value.filter(c => c.id !== change.id)
+        revCache.delete(change.id)
+      } else if (change.doc) {
+        revCache.set(change.id, change.doc._rev)
+        const cl = { ...docToChecklist(change.doc), items: migrateNodes(change.doc.items as unknown[]) }
+        const idx = checklists.value.findIndex(c => c.id === change.id)
+        if (idx >= 0) checklists.value[idx] = cl
+        else checklists.value.push(cl)
       }
-    } catch (e) {
-      console.warn('[sync] update failed for', checklist.id, e)
-      markPending(checklist.id)
-    }
-  }
-
-  async function syncDelete(appId: string): Promise<void> {
-    const authStore = useAuthStore()
-    if (!authStore.isAuthenticated) return
-    try {
-      const pbId = await getPbRecordId(appId)
-      if (pbId) {
-        await pb.collection('checklists').delete(pbId)
-      }
-    } catch (e) {
-      console.warn('[sync] delete failed for', appId, e)
-    }
-  }
-
-  // ── Real-time subscription ───────────────────────────────────────────────────
-
-  async function subscribeRealtime(): Promise<void> {
-    const authStore = useAuthStore()
-    if (!authStore.isAuthenticated || unsubscribe) return
-    try {
-      unsubscribe = await pb.collection('checklists').subscribe('*', (event) => {
-        const changed = pbToChecklist(event.record as unknown as PbRecord)
-        if (event.action === 'create' || event.action === 'update') {
-          if (pendingSync.value.has(changed.id)) return
-          const idx = checklists.value.findIndex(c => c.id === changed.id)
-          if (idx >= 0) checklists.value[idx] = changed
-          else checklists.value.push(changed)
-          persist()
-        } else if (event.action === 'delete') {
-          checklists.value = checklists.value.filter(c => c.id !== changed.id)
-          persist()
-        }
-      })
-    } catch (e) {
-      console.warn('[sync] realtime subscribe failed', e)
-    }
-  }
-
-  function unsubscribeRealtime(): void {
-    unsubscribe?.()
-    unsubscribe = null
-  }
-
-  // ── Backend health check ─────────────────────────────────────────────────────
-
-  async function checkBackendHealth(): Promise<boolean> {
-    try {
-      await pb.health.check()
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  // ── Retry loop: 1s → 5s → 10s → 60s repeating ──────────────────────────────
-
-  async function startRetryLoop(): Promise<void> {
-    if (retrying) return
-    retrying = true
-    let attempt = 0
-    while (true) {
-      const delay = RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length - 1)] ?? 60_000
-      await sleep(delay)
-      const ok = await checkBackendHealth()
-      if (ok) {
-        await reconnect()
-        retrying = false
-        break
-      }
-      attempt++
-    }
-  }
-
-  async function loadAndMerge(): Promise<void> {
-    const authStore = useAuthStore()
-    if (!authStore.isAuthenticated) return
-
-    syncStatus.value = 'syncing'
-    try {
-      const records = await pb.collection('checklists').getFullList<PbRecord>({ sort: 'created' })
-      const remote = records.map(pbToChecklist)
-
-      const localMap = new Map(checklists.value.map(c => [c.id, c]))
-      const remoteMap = new Map(remote.map(c => [c.id, c]))
-
-      for (const [id, remoteItem] of remoteMap) {
-        if (!pendingSync.value.has(id)) {
-          localMap.set(id, remoteItem)
-        }
-      }
-
-      checklists.value = Array.from(localMap.values())
-      persist()
-
-      const remoteIds = new Set(remoteMap.keys())
-      const uploads: Promise<void>[] = []
-      for (const item of checklists.value) {
-        if (!remoteIds.has(item.id) || pendingSync.value.has(item.id)) {
-          uploads.push(syncUpdate(item))
-        }
-      }
-      await Promise.all(uploads)
-
-      clearPending()
-      syncStatus.value = 'synced'
-    } catch (e) {
-      console.warn('[sync] loadAndMerge failed', e)
-      syncStatus.value = 'offline'
-      throw e
-    }
-  }
-
-  async function reconnect(): Promise<void> {
-    unsubscribeRealtime()
-    try {
-      await loadAndMerge()
-      await subscribeRealtime()
-      syncStatus.value = 'synced'
-    } catch {
-      syncStatus.value = 'offline'
-    }
+    })
   }
 
   async function initSync(): Promise<void> {
-    try {
-      await loadAndMerge()
-      await subscribeRealtime()
-    } catch {
-      syncStatus.value = 'offline'
-      startRetryLoop()
-    }
+    const authStore = useAuthStore()
+    if (!authStore.isAuthenticated || syncHandler) return
+
+    await loadFromLocal()
+    subscribeChanges()
+
+    const remoteDB = createRemoteDB()
+    syncStatus.value = 'syncing'
+
+    syncHandler = localDB.sync(remoteDB, { live: true, retry: true })
+      .on('paused', (err: unknown) => {
+        syncStatus.value = err ? 'offline' : 'synced'
+      })
+      .on('active', () => { syncStatus.value = 'syncing' })
+      .on('error', () => { syncStatus.value = 'offline' })
+      .on('denied', () => { syncStatus.value = 'offline' })
+  }
+
+  function unsubscribeRealtime(): void {
+    syncHandler?.cancel()
+    syncHandler = null
+    changesHandler?.cancel()
+    changesHandler = null
+    syncStatus.value = 'offline'
   }
 
   // ── Checklist CRUD ────────────────────────────────────────────────────────────
@@ -827,8 +610,7 @@ export const useChecklistStore = defineStore('checklists', () => {
       defaultEffort: 'medium',
     }
     checklists.value.push(checklist)
-    persist()
-    syncCreate(checklist)
+    void upsertChecklist(checklist)
     return checklist
   }
 
@@ -840,8 +622,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     if (!checklist) return
     if (patch.title !== undefined) checklist.title = patch.title
     if (patch.items !== undefined) checklist.items = patch.items
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
   }
 
   function deleteChecklist(id: string): void {
@@ -859,8 +640,7 @@ export const useChecklistStore = defineStore('checklists', () => {
       deletedIds = [id]
       checklists.value = checklists.value.filter(c => c.id !== id)
     }
-    persist()
-    deletedIds.forEach(appId => syncDelete(appId))
+    deletedIds.forEach(appId => void removeFromLocal(appId))
   }
 
   function archiveChecklist(id: string): void {
@@ -868,8 +648,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     if (!checklist) return
     checklist.archived = true
     checklist.archivedAt = new Date().toISOString()
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
   }
 
   function unarchiveChecklist(id: string): void {
@@ -877,8 +656,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     if (!checklist) return
     checklist.archived = false
     checklist.archivedAt = null
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
   }
 
   function runTemplate(templateId: string): Checklist {
@@ -900,8 +678,7 @@ export const useChecklistStore = defineStore('checklists', () => {
       defaultEffort: 'medium',
     }
     checklists.value.push(run)
-    persist()
-    syncCreate(run)
+    void upsertChecklist(run)
     return run
   }
 
@@ -915,10 +692,8 @@ export const useChecklistStore = defineStore('checklists', () => {
     item.done = !item.done
     if (checklist.tracked) {
       if (item.done) {
-        // Record completion timestamp; keep selectedForToday so item remains visible today
         item.completedAt = new Date().toISOString()
       } else {
-        // Un-completing: clear timestamp, restore to today's plan if it was there
         item.completedAt = null
         item.selectedForToday = true
       }
@@ -931,15 +706,13 @@ export const useChecklistStore = defineStore('checklists', () => {
       checklist.archived = true
       checklist.archivedAt = new Date().toISOString()
     }
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
   }
 
   function addItem(checklistId: string, text: string, parentGroupId?: string): ChecklistItem {
     const checklist = getChecklist(checklistId)
     if (!checklist) throw new Error(`Checklist ${checklistId} not found`)
     const item: ChecklistItem = { type: 'item', id: crypto.randomUUID(), text, done: false }
-    // Auto-set task fields for tracked checklists
     if (checklist.tracked) {
       item.priority = checklist.defaultPriority
       item.effort = checklist.defaultEffort
@@ -956,8 +729,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     } else {
       checklist.items.push(item)
     }
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
     return item
   }
 
@@ -967,16 +739,14 @@ export const useChecklistStore = defineStore('checklists', () => {
     const item = findItemDeep(checklist.items, itemId)
     if (!item) return
     item.text = text
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
   }
 
   function removeItem({ checklistId, itemId }: ChecklistItemId): void {
     const checklist = getChecklist(checklistId)
     if (!checklist) return
     checklist.items = removeNodeDeep(checklist.items, itemId)
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
   }
 
   // ── Group CRUD ────────────────────────────────────────────────────────────────
@@ -998,8 +768,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     } else {
       checklist.items.push(group)
     }
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
     return group
   }
 
@@ -1009,8 +778,7 @@ export const useChecklistStore = defineStore('checklists', () => {
     const group = findGroupDeep(checklist.items, groupId)
     if (!group) return
     group.title = title
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
   }
 
   function toggleGroupCollapsed(checklistId: string, groupId: string): void {
@@ -1019,16 +787,14 @@ export const useChecklistStore = defineStore('checklists', () => {
     const group = findGroupDeep(checklist.items, groupId)
     if (!group) return
     group.collapsed = !group.collapsed
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
   }
 
   function removeGroup(checklistId: string, groupId: string): void {
     const checklist = getChecklist(checklistId)
     if (!checklist) return
     checklist.items = removeNodeDeep(checklist.items, groupId)
-    persist()
-    syncUpdate(checklist)
+    void upsertChecklist(checklist)
   }
 
   return {
