@@ -2,7 +2,7 @@
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import type { Checklist } from '../../types'
 import { useChecklistStore, countItems, countDone } from '../../stores/checklists'
-import AppBadge from '../atoms/AppBadge.vue'
+import KindBadge from '../molecules/KindBadge.vue'
 import AppButton from '../atoms/AppButton.vue'
 import ItemRow from '../molecules/ItemRow.vue'
 import ItemGroup from '../molecules/ItemGroup.vue'
@@ -131,7 +131,7 @@ watch(isComplete, (val) => {
 
       <span class="font-medium text-lg text-zinc-100 truncate flex-1">{{ displayTitle }}</span>
 
-      <AppBadge :kind="checklist.kind" />
+      <KindBadge :kind="checklist.kind" />
 
       <Transition name="check">
         <span

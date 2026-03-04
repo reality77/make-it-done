@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { ChecklistItem } from '../../types'
+import PriorityBadge from './PriorityBadge.vue'
+import EffortBadge from './EffortBadge.vue'
 import AppButton from '../atoms/AppButton.vue'
 import AppCheckbox from '../atoms/AppCheckbox.vue'
 import SnoozeMenu from './SnoozeMenu.vue'
@@ -60,18 +62,6 @@ function onSnooze(date: string): void {
   emit('snooze', props.checklistId, props.item.id, date)
 }
 
-const priorityColors: Record<string, string> = {
-  urgent: 'text-red-400 bg-red-950',
-  important: 'text-yellow-400 bg-yellow-950',
-  secondary: 'text-zinc-400 bg-zinc-800',
-}
-
-const effortColors: Record<string, string> = {
-  small: 'text-emerald-400 bg-emerald-950',
-  medium: 'text-blue-400 bg-blue-950',
-  large: 'text-orange-400 bg-orange-950',
-}
-
 const itemStatus = () => props.item.status ?? 'active'
 </script>
 
@@ -107,20 +97,8 @@ const itemStatus = () => props.item.status ?? 'active'
     </div>
 
     <!-- Badges -->
-    <span
-      v-if="!compact && item.priority"
-      class="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
-      :class="priorityColors[item.priority]"
-    >
-      {{ item.priority }}
-    </span>
-    <span
-      v-if="!compact && item.effort"
-      class="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
-      :class="effortColors[item.effort]"
-    >
-      {{ item.effort }}
-    </span>
+    <PriorityBadge v-if="!compact && item.priority" :priority="item.priority" />
+    <EffortBadge v-if="!compact && item.effort" :effort="item.effort" />
 
     <!-- Actions (visible on hover) -->
     <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 relative">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { Checklist, ChecklistItem, ChecklistNode } from '../../types'
-import AppBadge from '../atoms/AppBadge.vue'
+import KindBadge from '../molecules/KindBadge.vue'
 import AppButton from '../atoms/AppButton.vue'
 
 const props = defineProps<{
@@ -47,7 +47,7 @@ function formatDate(iso: string | null): string {
         {{ checklist.runLabel ?? checklist.title }}
       </span>
 
-      <AppBadge :kind="checklist.kind" />
+      <KindBadge :kind="checklist.kind" />
 
       <span v-if="checklist.archivedAt" class="text-zinc-700 shrink-0">
         {{ formatDate(checklist.archivedAt) }}
