@@ -111,7 +111,7 @@ const deleteProgress = computed(() =>
 
       <span
         v-else
-        class="flex-1 cursor-text min-w-0 truncate"
+        class="flex-1 cursor-text min-w-0 break-words"
         :class="item.done ? 'line-through text-zinc-600' : 'text-zinc-300'"
         @click="startEdit"
       >

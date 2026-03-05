@@ -212,7 +212,7 @@ const snoozeProgress  = computed(() => Math.max(0, Math.min(-swipeOffset.value /
       />
       <div v-else class="flex-1 min-w-0">
         <span
-          class="text-sm truncate block"
+          class="text-sm break-words block"
           :class="[
             item.done ? 'line-through text-zinc-600' : 'text-zinc-200',
             planningMode !== false ? 'cursor-text' : '',
