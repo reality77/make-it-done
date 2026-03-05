@@ -1,0 +1,12 @@
+; CouchDB configuration for make-it-done
+; This file is mounted into the container at /opt/couchdb/etc/local.d/local.ini
+
+[httpd]
+enable_cors = true
+
+[cors]
+; List origins that are allowed to connect (update for production)
+origins = http://localhost:5173,http://localhost:4173,http://localhost:5174
+credentials = true
+methods = GET, PUT, POST, HEAD, DELETE
+headers = accept, authorization, content-type, origin, referer

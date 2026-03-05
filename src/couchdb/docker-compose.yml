@@ -1,0 +1,18 @@
+services:
+  couchdb:
+    image: apache/couchdb:3
+    container_name: make-it-done-couch
+    restart: unless-stopped
+    ports:
+      - "5984:5984"
+    environment:
+      COUCHDB_USER: admin
+      COUCHDB_PASSWORD: changeme
+    volumes:
+      - ./couch_data:/opt/couchdb/data
+      - ./local.ini:/opt/couchdb/etc/local.d/local.ini
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
