@@ -29,6 +29,8 @@ export const useAuthStore = defineStore('auth', () => {
         error.value = 'Cannot reach the server. Check that CouchDB is running.'
       } else if (msg === 'server') {
         error.value = 'Server error. Please try again later.'
+      } else if (msg === 'unauthorized') {
+        error.value = 'Session cookie was rejected. Ensure the app is served over HTTPS.'
       } else {
         error.value = 'Invalid password. Please try again.'
       }

@@ -72,5 +72,7 @@ export async function couchGetSession(): Promise<string | null> {
 
 export async function ensureDatabase(): Promise<void> {
   // Creates the DB if it doesn't exist. CouchDB returns 201 (created) or 412 (exists) — both fine.
-  await fetch(`${COUCH_URL}/${DB_NAME}`, { method: 'PUT', credentials: 'include' })
+  const res = await fetch(`${COUCH_URL}/${DB_NAME}`, { method: 'PUT', credentials: 'include' })
+  if (res.status === 401 || res.status === 403) throw new Error('unauthorized')
+  if (!res.ok && res.status !== 412) throw new Error('server')
 }

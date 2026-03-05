@@ -2,6 +2,7 @@ services:
   couchdb:
     image: apache/couchdb:3
     container_name: get-it-done-couch
+    hostname: getitdone
     restart: unless-stopped
     ports:
       - "5984:5984"
@@ -16,3 +17,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    networks:
+      - reverse_proxy_network
+      - default
+
+networks:
+  default:
+  reverse_proxy_network:
+    external: true
