@@ -2,5 +2,7 @@
 src/pocketbase/pb_data/
 
 # Frontend env files
-src/make-it-done/.env
-src/make-it-done/.env.local
+src/get-it-done/.env
+src/get-it-done/.env.local
+
+.local/

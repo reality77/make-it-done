@@ -18,7 +18,7 @@ import { useAuthStore } from './auth'
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 
-const PLAN_META_KEY = 'make-it-done-plan-meta-v1'
+const PLAN_META_KEY = 'get-it-done-plan-meta-v1'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

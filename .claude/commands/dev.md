@@ -1,9 +1,9 @@
-Start the Vite dev server for the make-it-done app.
+Start the Vite dev server for the get-it-done app.
 
 Run the following command in the background:
 
 ```bash
-cd /home/david/src/make-it-done/src/make-it-done && npm run dev
+cd /home/david/src/get-it-done/src/get-it-done && npm run dev
 ```
 
 Report the local URL once the server is ready (typically http://localhost:5173).

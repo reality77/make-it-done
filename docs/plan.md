@@ -1,4 +1,4 @@
-# make-it-done — Product Plan
+# get-it-done — Product Plan
 
 ## Product Overview
 
@@ -137,7 +137,7 @@ One flat `Checklist[]` for all kinds. `kind` discriminates rendering and behavio
 
 **State:** `const checklists = ref<Checklist[]>([])`
 
-**Persistence:** `hydrate()` on init reads from `localStorage`. A deep `watch` calls `persist()` on every mutation. Storage key: `'make-it-done-v1'`.
+**Persistence:** `hydrate()` on init reads from `localStorage`. A deep `watch` calls `persist()` on every mutation. Storage key: `'get-it-done-v1'`.
 
 **Computed views:**
 | Name | Filter |

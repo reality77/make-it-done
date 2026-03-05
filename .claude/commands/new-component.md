@@ -1,10 +1,10 @@
-Scaffold a new Vue 3 component for the make-it-done app following its conventions.
+Scaffold a new Vue 3 component for the get-it-done app following its conventions.
 
 The user will specify a component name and atomic design layer. If not provided, ask for them.
 
 ## Rules
 
-- Place the file at `src/make-it-done/src/components/<layer>/<ComponentName>.vue`
+- Place the file at `src/get-it-done/src/components/<layer>/<ComponentName>.vue`
 - Use `<script setup lang="ts">` with `defineProps` and `defineEmits` (typed generics, not runtime declarations)
 - No enums — use string literal union types only (TypeScript `erasableSyntaxOnly` is enabled)
 - Style with Tailwind CSS v4 utility classes only — no `<style>` blocks unless unavoidable

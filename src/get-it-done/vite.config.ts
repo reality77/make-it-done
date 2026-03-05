@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: '/make-it-done/',
+  base: '/get-it-done/',
   resolve: {
     alias: {
       events: 'events/events.js',

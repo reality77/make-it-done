@@ -1,4 +1,4 @@
-; CouchDB configuration for make-it-done
+; CouchDB configuration for get-it-done
 ; This file is mounted into the container at /opt/couchdb/etc/local.d/local.ini
 
 [httpd]

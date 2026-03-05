@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`make-it-done` is a Vue 3 + TypeScript + Vite + Tailwind CSS v4 checklist app. It uses the Composition API with `<script setup>` syntax throughout. Components follow **Atomic Design** (atoms → molecules → organisms → templates → page).
+`get-it-done` is a Vue 3 + TypeScript + Vite + Tailwind CSS v4 checklist app. It uses the Composition API with `<script setup>` syntax throughout. Components follow **Atomic Design** (atoms → molecules → organisms → templates → page).
 
 ## Project Root
 
-The Vite app lives at `src/make-it-done/` — **all commands must be run from there**:
+The Vite app lives at `src/get-it-done/` — **all commands must be run from there**:
 
 ```bash
-cd src/make-it-done
+cd src/get-it-done
 npm run dev        # Start dev server with HMR
 npm run build      # Type-check with vue-tsc, then bundle with Vite
 npm run preview    # Preview the production build locally

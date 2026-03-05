@@ -114,7 +114,7 @@ const syncStatusTitles: Record<string, string> = {
 
 <template>
   <header class="mb-8 flex items-center justify-between">
-    <h1 class="text-2xl font-semibold tracking-tight text-zinc-100">make-it-done</h1>
+    <h1 class="text-2xl font-semibold tracking-tight text-zinc-100">get-it-done</h1>
     <span
       v-if="authStore.isAuthenticated"
       class="w-2 h-2 rounded-full shrink-0"
