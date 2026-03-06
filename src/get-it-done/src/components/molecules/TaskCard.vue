@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useSwipe } from '@vueuse/core'
+import { ref } from 'vue'
 import type { ChecklistItem, ChecklistItemId, TaskPriority, TaskEffort } from '../../types'
+import { useSwipeAction } from '../../composables/useSwipeAction'
 import { getSnoozeOptions } from '../../stores/checklists'
 import PriorityBadge from './PriorityBadge.vue'
 import EffortBadge from './EffortBadge.vue'
@@ -126,44 +126,20 @@ function confirmMobileMenu(): void {
 
 // ── Swipe gesture (planning mode, mobile) ─────────────────────────────────────
 const rowEl = ref<HTMLElement | null>(null)
-const swipeOffset = ref(0)
-const SWIPE_THRESHOLD = 72 // px
 
-const { isSwiping, direction, lengthX } = useSwipe(rowEl, {
-  threshold: 10,
-  onSwipe() {
-    if (!props.planningMode) return
-    if (direction.value === 'left') {
-      // lengthX is positive when swiping left → negate to get negative offset
-      swipeOffset.value = Math.max(-lengthX.value, -(SWIPE_THRESHOLD * 1.4))
-    } else if (direction.value === 'right') {
-      // lengthX is negative when swiping right → negate to get positive offset
-      swipeOffset.value = Math.min(-lengthX.value, SWIPE_THRESHOLD * 1.4)
-    }
-  },
-  onSwipeEnd() {
-    if (!props.planningMode) return
+const { style: rowStyle, rightProgress: somedayProgress, leftProgress: snoozeProgress } = useSwipeAction(rowEl, {
+  threshold: 72,
+  guard: () => !!props.planningMode,
+  onLeft() {
     const id: ChecklistItemId = { checklistId: props.checklistId, itemId: props.item.id }
-    if (swipeOffset.value <= -SWIPE_THRESHOLD) {
-      // swiped left enough → snooze 3 days
-      const d = new Date()
-      d.setDate(d.getDate() + 3)
-      emit('snooze', id, d.toISOString().slice(0, 10))
-    } else if (swipeOffset.value >= SWIPE_THRESHOLD) {
-      // swiped right enough → someday
-      emit('someday', id)
-    }
-    swipeOffset.value = 0
+    const d = new Date()
+    d.setDate(d.getDate() + (1 + 7 - d.getDay()) % 7 || 7)
+    emit('snooze', id, d.toISOString().slice(0, 10))
+  },
+  onRight() {
+    emit('someday', { checklistId: props.checklistId, itemId: props.item.id })
   },
 })
-
-const rowStyle = computed(() => ({
-  transform: swipeOffset.value !== 0 ? `translateX(${swipeOffset.value}px)` : '',
-  transition: isSwiping.value ? 'none' : 'transform 0.2s ease',
-}))
-// positive = swiped right (someday); negative = swiped left (snooze)
-const somedayProgress = computed(() => Math.max(0, Math.min(swipeOffset.value / SWIPE_THRESHOLD, 1)))
-const snoozeProgress  = computed(() => Math.max(0, Math.min(-swipeOffset.value / SWIPE_THRESHOLD, 1)))
 </script>
 
 <template>
@@ -185,7 +161,7 @@ const snoozeProgress  = computed(() => Math.max(0, Math.min(-swipeOffset.value /
       class="absolute inset-0 bg-amber-700 flex items-center justify-end px-3 pointer-events-none"
       :style="{ opacity: snoozeProgress * 0.9 }"
     >
-      <span class="text-white text-xs font-medium">💤 3 days</span>
+      <span class="text-white text-xs font-medium">💤 Next monday</span>
     </div>
 
     <!-- Row content -->
@@ -212,7 +188,7 @@ const snoozeProgress  = computed(() => Math.max(0, Math.min(-swipeOffset.value /
       />
       <div v-else class="flex-1 min-w-0">
         <span
-          class="text-sm break-words block"
+          class="text-sm wrap-break-word block"
           :class="[
             item.done ? 'line-through text-zinc-600' : 'text-zinc-200',
             planningMode !== false ? 'cursor-text' : '',

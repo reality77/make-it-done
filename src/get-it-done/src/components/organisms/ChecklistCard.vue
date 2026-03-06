@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
-import { useSwipe } from '@vueuse/core'
 import type { Checklist } from '../../types'
+import { useSwipeAction } from '../../composables/useSwipeAction'
 import { useChecklistStore, countItems, countDone } from '../../stores/checklists'
 import KindBadge from '../molecules/KindBadge.vue'
 import AppButton from '../atoms/AppButton.vue'
@@ -115,31 +115,13 @@ watch(isComplete, (val) => {
 
 // ── Swipe-to-archive (mobile) ────────────────────────────────────────────────
 const cardEl = ref<HTMLElement | null>(null)
-const swipeOffset = ref(0)
-const ARCHIVE_THRESHOLD = 100 // px
+const cardHeaderEl = ref<HTMLElement | null>(null)
 
-const { isSwiping: isCardSwiping, direction: cardDirection, lengthX: cardLengthX } = useSwipe(cardEl, {
-  threshold: 10,
-  onSwipe() {
-    if (props.checklist.kind === 'template') return
-    if (cardDirection.value === 'left') {
-      swipeOffset.value = Math.max(-cardLengthX.value, -(ARCHIVE_THRESHOLD * 1.4))
-    }
-  },
-  onSwipeEnd() {
-    if (props.checklist.kind !== 'template' && swipeOffset.value <= -ARCHIVE_THRESHOLD) {
-      emit('archive', props.checklist.id)
-    }
-    swipeOffset.value = 0
-  },
+const { isSwiping: isCardSwiping, style: cardStyle, leftProgress: archiveProgress } = useSwipeAction(cardHeaderEl, {
+  threshold: 100,
+  guard: () => props.checklist.kind !== 'template',
+  onLeft: () => emit('archive', props.checklist.id),
 })
-
-const cardStyle = computed(() =>
-  swipeOffset.value !== 0 ? { transform: `translateX(${swipeOffset.value}px)` } : {}
-)
-const archiveProgress = computed(() =>
-  Math.min(-swipeOffset.value / ARCHIVE_THRESHOLD, 1)
-)
 </script>
 
 <template>
@@ -164,7 +146,7 @@ const archiveProgress = computed(() =>
     :style="cardStyle"
   >
     <!-- Header -->
-    <div class="flex items-center gap-2 min-w-0">
+    <div ref="cardHeaderEl" class="flex items-center gap-2 min-w-0">
       <button
         class="text-zinc-600 hover:text-zinc-300 transition-colors text-lg w-4 shrink-0 text-left"
         @click="isExpanded = !isExpanded"

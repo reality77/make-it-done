@@ -293,13 +293,6 @@ function onTouchDragEnd(): void {
               @dragstart="onDragStart($event, ref)"
               @dragend="onDragEnd"
             >
-              <!-- Mobile touch drag handle (planning mode only) -->
-              <button
-                v-if="mode === 'planning'"
-                class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-5 text-zinc-600 active:text-zinc-400 touch-none cursor-grab px-1 sm:hidden"
-                title="Drag to change priority"
-                @touchstart="(e) => onHandleTouchStart(e, ref)"
-              >⠿</button>
 
               <!-- Day plan toggle checkbox (planning mode only) -->
               <button
