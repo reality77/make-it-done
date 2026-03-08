@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useSwipe } from '@vueuse/core'
+import { ref } from 'vue'
 import type { ChecklistItem } from '../../types'
+import { useSwipeAction } from '../../composables/useSwipeAction'
 import AppCheckbox from '../atoms/AppCheckbox.vue'
 
 const props = defineProps<{
@@ -54,32 +54,12 @@ defineExpose({ cancelEdit })
 
 // ── Swipe-to-delete ──────────────────────────────────────────────────────────
 const rowEl = ref<HTMLElement | null>(null)
-const swipeOffset = ref(0)
-const DELETE_THRESHOLD = 80 // px
 
-const { isSwiping, direction, lengthX } = useSwipe(rowEl, {
-  threshold: 10,
-  onSwipe() {
-    if (isEditing.value) return
-    if (direction.value === 'left') {
-      // lengthX > 0 when swiping left; negate to get a negative offset
-      swipeOffset.value = Math.max(-lengthX.value, -(DELETE_THRESHOLD * 1.3))
-    }
-  },
-  onSwipeEnd() {
-    if (swipeOffset.value <= -DELETE_THRESHOLD) {
-      emit('remove')
-    }
-    swipeOffset.value = 0
-  },
+const { isSwiping, style: rowStyle, leftProgress: deleteProgress } = useSwipeAction(rowEl, {
+  threshold: 80,
+  guard: () => !isEditing.value,
+  onLeft: () => emit('remove'),
 })
-
-const rowStyle = computed(() =>
-  swipeOffset.value !== 0 ? { transform: `translateX(${swipeOffset.value}px)` } : {}
-)
-const deleteProgress = computed(() =>
-  Math.min(Math.abs(swipeOffset.value) / DELETE_THRESHOLD, 1)
-)
 </script>
 
 <template>
