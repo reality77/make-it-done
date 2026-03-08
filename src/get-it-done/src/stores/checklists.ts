@@ -161,7 +161,7 @@ function migrateNodes(raw: unknown[]): ChecklistNode[] {
 
 // ── Sync status type ──────────────────────────────────────────────────────────
 
-export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'pending'
+export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'pending' | 'unauthorized'
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
@@ -598,6 +598,17 @@ export const useChecklistStore = defineStore('checklists', () => {
       return s === 401 || s === 403
     }
 
+    // Immediately shut down sync on auth failure without waiting for App.vue's
+    // watcher to react. This keeps the store robust when used standalone.
+    function handleAuthFailure(): void {
+      if (syncRetryTimer) { clearTimeout(syncRetryTimer); syncRetryTimer = null }
+      syncRetryDelay = 5_000
+      syncHandler?.cancel()
+      syncHandler = null
+      syncStatus.value = 'unauthorized'
+      authStore.invalidateSession()
+    }
+
     // Intercept network failures at the fetch level (CORS/null status errors may
     // not surface through PouchDB events when retry is disabled).
     const remoteDB = createRemoteDB(() => { scheduleRetry() })
@@ -615,11 +626,11 @@ export const useChecklistStore = defineStore('checklists', () => {
       })
       .on('active', () => { syncStatus.value = 'syncing' })
       .on('error', (err) => {
-        if (isAuthError(err)) authStore.invalidateSession()
+        if (isAuthError(err)) handleAuthFailure()
         else scheduleRetry()
       })
       .on('denied', (err) => {
-        if (isAuthError(err)) authStore.invalidateSession()
+        if (isAuthError(err)) handleAuthFailure()
         else syncStatus.value = 'offline'
       })
   }

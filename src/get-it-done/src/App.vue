@@ -164,17 +164,19 @@ function handleSuggestDay(): void {
 }
 
 const syncStatusClasses: Record<string, string> = {
-  synced:  'bg-green-500',
-  syncing: 'bg-violet-400 animate-pulse',
-  offline: 'bg-zinc-600',
-  pending: 'bg-orange-400',
+  synced:       'bg-green-500',
+  syncing:      'bg-violet-400 animate-pulse',
+  offline:      'bg-zinc-600',
+  pending:      'bg-orange-400',
+  unauthorized: 'bg-red-500',
 }
 
 const syncStatusTitles: Record<string, string> = {
-  synced:  'Synced',
-  syncing: 'Syncing…',
-  offline: 'Offline — retrying',
-  pending: 'Unsynced changes',
+  synced:       'Synced',
+  syncing:      'Syncing…',
+  offline:      'Offline — retrying',
+  pending:      'Unsynced changes',
+  unauthorized: 'Session expired',
 }
 </script>
 
