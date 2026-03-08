@@ -20,6 +20,91 @@ const checklistStore = useChecklistStore()
 
 const loginPrompted = ref(false)
 
+// ── Session keep-alive ────────────────────────────────────────────────────────
+
+let keepAliveTimer: ReturnType<typeof setInterval> | null = null
+
+function startKeepAlive(): void {
+  // Only start keep-alive when the document is visible
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+  if (keepAliveTimer) return
+  keepAliveTimer = setInterval(async () => {
+    // Stop keep-alive if user is no longer authenticated or page is hidden
+    if (
+      !authStore.isAuthenticated ||
+      (typeof document !== 'undefined' && document.visibilityState !== 'visible')
+    ) {
+      stopKeepAlive()
+      return
+    }
+  // Only start keep-alive when the document is visible
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+  if (keepAliveTimer) return
+  keepAliveTimer = setInterval(async () => {
+    // Stop keep-alive if user is no longer authenticated or page is hidden
+    if (
+      !authStore.isAuthenticated ||
+      (typeof document !== 'undefined' && document.visibilityState !== 'visible')
+    ) {
+      stopKeepAlive()
+      return
+    }
+    await authStore.checkSession()
+  }, 5 * 60 * 1000)
+}
+
+function stopKeepAlive(): void {
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer)
+    keepAliveTimer = null
+  }
+}
+
+function handleVisibilityChange(): void {
+  if (typeof document === 'undefined') return
+  if (document.visibilityState === 'visible') {
+    // Resume keep-alive only when authenticated and visible
+    if (authStore.isAuthenticated) {
+      startKeepAlive()
+    }
+  } else {
+    // Pause keep-alive while the document is hidden
+    stopKeepAlive()
+  }
+}
+
+onMounted(() => {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    // Initialize keep-alive state based on current visibility and auth
+    if (document.visibilityState === 'visible' && authStore.isAuthenticated) {
+      startKeepAlive()
+    }
+  }
+})
+
+onUnmounted(() => {
+  stopKeepAlive()
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }
+})
+onMounted(() => {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    // Initialize keep-alive state based on current visibility and auth
+    if (document.visibilityState === 'visible' && authStore.isAuthenticated) {
+      startKeepAlive()
+    }
+  }
+})
+
+onUnmounted(() => {
+  stopKeepAlive()
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }
+})
 const {
   activeChecklists,
   templates,
@@ -52,26 +137,48 @@ watch(weeklyReviewDue, (due) => {
   if (due) reviewDismissed.value = false
 })
 
+async function handleVisibilityChange(): Promise<void> {
+  if (typeof document === 'undefined') return
+  if (document.visibilityState === 'visible') {
+    if (authStore.isAuthenticated) {
+      startKeepAlive()
+    }
+    const result = await authStore.checkSession()
+    if (result.status === 'expired') loginPrompted.value = true
+  } else {
+    stopKeepAlive()
+  }
+}
+
 onMounted(async () => {
   await checklistStore.loadLocal()        // data available offline, before auth (#8)
   checklistStore.processDueSnoozed()      // now runs on real data (#4)
   checklistStore.refreshDayPlanIfStale()  // idem
-  await authStore.checkSession()
+  const result = await authStore.checkSession()
   if (authStore.isAuthenticated) {
+    startKeepAlive()
     await checklistStore.initSync()
+  } else if (result.status === 'expired') {
+    loginPrompted.value = true
   }
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  stopKeepAlive()
   checklistStore.unsubscribeRealtime()
 })
 
-watch(() => authStore.isAuthenticated, async (authed) => {
+watch(() => authStore.isAuthenticated, async (authed, wasAuthed) => {
   if (authed) {
     loginPrompted.value = false
+    startKeepAlive()
     await checklistStore.initSync()
   } else {
+    stopKeepAlive()
     checklistStore.unsubscribeRealtime()
+    if (wasAuthed) loginPrompted.value = true  // session expired during use
   }
 })
 
@@ -98,17 +205,19 @@ function handleSuggestDay(): void {
 }
 
 const syncStatusClasses: Record<string, string> = {
-  synced:  'bg-green-500',
-  syncing: 'bg-violet-400 animate-pulse',
-  offline: 'bg-zinc-600',
-  pending: 'bg-orange-400',
+  synced:       'bg-green-500',
+  syncing:      'bg-violet-400 animate-pulse',
+  offline:      'bg-zinc-600',
+  pending:      'bg-orange-400',
+  unauthorized: 'bg-red-500',
 }
 
 const syncStatusTitles: Record<string, string> = {
-  synced:  'Synced',
-  syncing: 'Syncing…',
-  offline: 'Offline — retrying',
-  pending: 'Unsynced changes',
+  synced:       'Synced',
+  syncing:      'Syncing…',
+  offline:      'Offline — retrying',
+  pending:      'Unsynced changes',
+  unauthorized: 'Session expired',
 }
 </script>
 
