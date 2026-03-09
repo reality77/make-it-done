@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import type { ChecklistItemGroup } from '../../types'
-import { useChecklistStore } from '../../stores/checklists'
 import ItemRow from './ItemRow.vue'
 
 // Self-reference: Vue 3 resolves <ItemGroup> by this file's name automatically.
@@ -12,16 +11,16 @@ const props = defineProps<{
   tracked?: boolean
 }>()
 
-const {
-  toggleItem,
-  addItem,
-  updateItemText,
-  removeItem,
-  addGroup,
-  updateGroupTitle,
-  toggleGroupCollapsed,
-  removeGroup,
-} = useChecklistStore()
+const emit = defineEmits<{
+  (e: 'toggle-item', checklistId: string, itemId: string): void
+  (e: 'update-item-text', checklistId: string, itemId: string, text: string): void
+  (e: 'remove-item', checklistId: string, itemId: string): void
+  (e: 'add-item', checklistId: string, text: string, groupId: string): void
+  (e: 'add-group', checklistId: string, title: string, parentGroupId: string): void
+  (e: 'update-group-title', checklistId: string, groupId: string, title: string): void
+  (e: 'toggle-group-collapsed', checklistId: string, groupId: string): void
+  (e: 'remove-group', checklistId: string, groupId: string): void
+}>()
 
 const itemRowRefs = ref<InstanceType<typeof ItemRow>[]>([])
 
@@ -40,7 +39,7 @@ async function startEditTitle(): Promise<void> {
 
 function confirmEditTitle(): void {
   const title = editTitleText.value.trim()
-  if (title) updateGroupTitle(props.checklistId, props.group.id, title)
+  if (title) emit('update-group-title', props.checklistId, props.group.id, title)
   isEditingTitle.value = false
 }
 
@@ -55,7 +54,7 @@ const addItemInputEl = ref<HTMLInputElement | null>(null)
 
 async function startAddItem(): Promise<void> {
   itemRowRefs.value.forEach(r => r.cancelEdit())
-  if (props.group.collapsed) toggleGroupCollapsed(props.checklistId, props.group.id)
+  if (props.group.collapsed) emit('toggle-group-collapsed', props.checklistId, props.group.id)
   isAddingGroup.value = false
   isAddingItem.value = true
   await nextTick()
@@ -65,7 +64,7 @@ async function startAddItem(): Promise<void> {
 function confirmAddItem(): void {
   const text = newItemText.value.trim()
   if (!text) { cancelAddItem(); return }
-  addItem(props.checklistId, text, props.group.id)
+  emit('add-item', props.checklistId, text, props.group.id)
   newItemText.value = ''
 }
 
@@ -80,7 +79,7 @@ const newGroupTitle = ref('')
 const addGroupInputEl = ref<HTMLInputElement | null>(null)
 
 async function startAddGroup(): Promise<void> {
-  if (props.group.collapsed) toggleGroupCollapsed(props.checklistId, props.group.id)
+  if (props.group.collapsed) emit('toggle-group-collapsed', props.checklistId, props.group.id)
   isAddingItem.value = false
   isAddingGroup.value = true
   await nextTick()
@@ -90,7 +89,7 @@ async function startAddGroup(): Promise<void> {
 function confirmAddGroup(): void {
   const title = newGroupTitle.value.trim()
   if (!title) { cancelAddGroup(); return }
-  addGroup(props.checklistId, title, props.group.id)
+  emit('add-group', props.checklistId, title, props.group.id)
   newGroupTitle.value = ''
 }
 
@@ -118,7 +117,7 @@ const onAddGroupKeydown = makeKeydownHandler(confirmAddGroup, cancelAddGroup)
     <div class="flex items-center gap-1.5 py-1 group/header">
       <button
         class="text-zinc-600 hover:text-zinc-300 transition-colors text-xs w-3 shrink-0 text-left"
-        @click="toggleGroupCollapsed(checklistId, group.id)"
+        @click="emit('toggle-group-collapsed', checklistId, group.id)"
       >
         {{ group.collapsed ? '▸' : '▾' }}
       </button>
@@ -141,7 +140,7 @@ const onAddGroupKeydown = makeKeydownHandler(confirmAddGroup, cancelAddGroup)
 
       <button
         class="opacity-0 group-hover/header:opacity-100 text-zinc-600 hover:text-red-400 transition-all text-xs shrink-0 cursor-pointer"
-        @click="removeGroup(checklistId, group.id)"
+        @click="emit('remove-group', checklistId, group.id)"
       >
         ✕
       </button>
@@ -155,9 +154,9 @@ const onAddGroupKeydown = makeKeydownHandler(confirmAddGroup, cancelAddGroup)
           ref="itemRowRefs"
           :item="node"
           :tracked="tracked"
-          @toggle="toggleItem({ checklistId, itemId: node.id })"
-          @update-text="(text) => updateItemText({ checklistId, itemId: node.id }, text)"
-          @remove="removeItem({ checklistId, itemId: node.id })"
+          @toggle="emit('toggle-item', checklistId, node.id)"
+          @update-text="(text) => emit('update-item-text', checklistId, node.id, text)"
+          @remove="emit('remove-item', checklistId, node.id)"
           @start-edit="cancelAddItem"
         />
         <!-- Recursive: Vue resolves <ItemGroup> by this file's name -->
@@ -166,6 +165,14 @@ const onAddGroupKeydown = makeKeydownHandler(confirmAddGroup, cancelAddGroup)
           :group="node"
           :checklist-id="checklistId"
           :tracked="tracked"
+          @toggle-item="(cid, iid) => emit('toggle-item', cid, iid)"
+          @update-item-text="(cid, iid, text) => emit('update-item-text', cid, iid, text)"
+          @remove-item="(cid, iid) => emit('remove-item', cid, iid)"
+          @add-item="(cid, text, gid) => emit('add-item', cid, text, gid)"
+          @add-group="(cid, title, pgid) => emit('add-group', cid, title, pgid)"
+          @update-group-title="(cid, gid, title) => emit('update-group-title', cid, gid, title)"
+          @toggle-group-collapsed="(cid, gid) => emit('toggle-group-collapsed', cid, gid)"
+          @remove-group="(cid, gid) => emit('remove-group', cid, gid)"
         />
       </template>
 

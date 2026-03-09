@@ -21,7 +21,10 @@ const emit = defineEmits<{
   (e: 'archive', checklistId: string): void
 }>()
 
-const { toggleItem, addItem, updateItemText, removeItem, addGroup } = useChecklistStore()
+const {
+  toggleItem, addItem, updateItemText, removeItem, addGroup,
+  updateGroupTitle, toggleGroupCollapsed, removeGroup,
+} = useChecklistStore()
 
 const isExpanded = ref(true)
 
@@ -220,6 +223,14 @@ const { isSwiping: isCardSwiping, style: cardStyle, leftProgress: archiveProgres
           :group="node"
           :checklist-id="checklist.id"
           :tracked="checklist.tracked"
+          @toggle-item="(cid, iid) => toggleItem({ checklistId: cid, itemId: iid })"
+          @update-item-text="(cid, iid, text) => updateItemText({ checklistId: cid, itemId: iid }, text)"
+          @remove-item="(cid, iid) => removeItem({ checklistId: cid, itemId: iid })"
+          @add-item="(cid, text, gid) => addItem(cid, text, gid)"
+          @add-group="(cid, title, pgid) => addGroup(cid, title, pgid)"
+          @update-group-title="(cid, gid, title) => updateGroupTitle(cid, gid, title)"
+          @toggle-group-collapsed="(cid, gid) => toggleGroupCollapsed(cid, gid)"
+          @remove-group="(cid, gid) => removeGroup(cid, gid)"
         />
       </template>
 
