@@ -109,6 +109,16 @@ function makeKeydownHandler(onEnter: () => void, onEscape: () => void) {
 const onEditTitleKeydown = makeKeydownHandler(confirmEditTitle, cancelEditTitle)
 const onAddItemKeydown = makeKeydownHandler(confirmAddItem, cancelAddItem)
 const onAddGroupKeydown = makeKeydownHandler(confirmAddGroup, cancelAddGroup)
+
+// ── Stable forwarders for recursive <ItemGroup> events ────────────────────────
+function forwardToggleItem(cid: string, iid: string): void { emit('toggle-item', cid, iid) }
+function forwardUpdateItemText(cid: string, iid: string, text: string): void { emit('update-item-text', cid, iid, text) }
+function forwardRemoveItem(cid: string, iid: string): void { emit('remove-item', cid, iid) }
+function forwardAddItem(cid: string, text: string, gid: string): void { emit('add-item', cid, text, gid) }
+function forwardAddGroup(cid: string, title: string, pgid: string): void { emit('add-group', cid, title, pgid) }
+function forwardUpdateGroupTitle(cid: string, gid: string, title: string): void { emit('update-group-title', cid, gid, title) }
+function forwardToggleGroupCollapsed(cid: string, gid: string): void { emit('toggle-group-collapsed', cid, gid) }
+function forwardRemoveGroup(cid: string, gid: string): void { emit('remove-group', cid, gid) }
 </script>
 
 <template>
@@ -165,14 +175,14 @@ const onAddGroupKeydown = makeKeydownHandler(confirmAddGroup, cancelAddGroup)
           :group="node"
           :checklist-id="checklistId"
           :tracked="tracked"
-          @toggle-item="(cid, iid) => emit('toggle-item', cid, iid)"
-          @update-item-text="(cid, iid, text) => emit('update-item-text', cid, iid, text)"
-          @remove-item="(cid, iid) => emit('remove-item', cid, iid)"
-          @add-item="(cid, text, gid) => emit('add-item', cid, text, gid)"
-          @add-group="(cid, title, pgid) => emit('add-group', cid, title, pgid)"
-          @update-group-title="(cid, gid, title) => emit('update-group-title', cid, gid, title)"
-          @toggle-group-collapsed="(cid, gid) => emit('toggle-group-collapsed', cid, gid)"
-          @remove-group="(cid, gid) => emit('remove-group', cid, gid)"
+          @toggle-item="forwardToggleItem"
+          @update-item-text="forwardUpdateItemText"
+          @remove-item="forwardRemoveItem"
+          @add-item="forwardAddItem"
+          @add-group="forwardAddGroup"
+          @update-group-title="forwardUpdateGroupTitle"
+          @toggle-group-collapsed="forwardToggleGroupCollapsed"
+          @remove-group="forwardRemoveGroup"
         />
       </template>
 

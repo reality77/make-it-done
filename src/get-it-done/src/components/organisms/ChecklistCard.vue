@@ -98,6 +98,17 @@ function makeKeydownHandler(onEnter: () => void, onEscape: () => void) {
 const onAddItemKeydown = makeKeydownHandler(confirmAddItem, cancelAddItem)
 const onAddGroupKeydown = makeKeydownHandler(confirmAddGroup, cancelAddGroup)
 
+// ── ItemGroup event handlers ──────────────────────────────────────────────────
+function onToggleItem(checklistId: string, itemId: string): void {
+  toggleItem({ checklistId, itemId })
+}
+function onUpdateItemText(checklistId: string, itemId: string, text: string): void {
+  updateItemText({ checklistId, itemId }, text)
+}
+function onRemoveItem(checklistId: string, itemId: string): void {
+  removeItem({ checklistId, itemId })
+}
+
 // ── Misc ──────────────────────────────────────────────────────────────────────
 const displayTitle = computed(() => props.checklist.runLabel ?? props.checklist.title)
 const doneCount = computed(() => countDone(props.checklist.items))
@@ -223,14 +234,14 @@ const { isSwiping: isCardSwiping, style: cardStyle, leftProgress: archiveProgres
           :group="node"
           :checklist-id="checklist.id"
           :tracked="checklist.tracked"
-          @toggle-item="(cid, iid) => toggleItem({ checklistId: cid, itemId: iid })"
-          @update-item-text="(cid, iid, text) => updateItemText({ checklistId: cid, itemId: iid }, text)"
-          @remove-item="(cid, iid) => removeItem({ checklistId: cid, itemId: iid })"
-          @add-item="(cid, text, gid) => addItem(cid, text, gid)"
-          @add-group="(cid, title, pgid) => addGroup(cid, title, pgid)"
-          @update-group-title="(cid, gid, title) => updateGroupTitle(cid, gid, title)"
-          @toggle-group-collapsed="(cid, gid) => toggleGroupCollapsed(cid, gid)"
-          @remove-group="(cid, gid) => removeGroup(cid, gid)"
+          @toggle-item="onToggleItem"
+          @update-item-text="onUpdateItemText"
+          @remove-item="onRemoveItem"
+          @add-item="addItem"
+          @add-group="addGroup"
+          @update-group-title="updateGroupTitle"
+          @toggle-group-collapsed="toggleGroupCollapsed"
+          @remove-group="removeGroup"
         />
       </template>
 
