@@ -86,6 +86,9 @@ const { style: rowStyle, rightProgress, leftProgress } = useSwipeAction(rowEl, {
   onRight: () => props.swipeRight?.onTrigger(),
 })
 
+// Treat as having a "mobile sheet" either when a `mobile-sheet` slot is provided,
+// or when actions are collapsed into the built-in mobile actions sheet via
+// `collapseMobileActions`.
 const hasMobileSheet = () => !!slots['mobile-sheet'] || !!(props.collapseMobileActions && props.actions?.length)
 const hasActions = () => !!(props.actions?.length)
 </script>
