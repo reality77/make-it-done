@@ -122,13 +122,14 @@ const touchTargetPriority = ref<TaskPriority | null>(null);
 // ── TaskCard helpers ──────────────────────────────────────────────────────────
 
 function weekSwipeLeft(taskRef: TrackedItemRef): SwipeActionDef {
-  const d = new Date()
-  d.setDate(d.getDate() + (1 + 7 - d.getDay()) % 7 || 7)
-  const nextMonday = d.toISOString().slice(0, 10)
   return {
     hint: '💤 Next week',
     bgClass: 'bg-amber-700',
-    onTrigger: () => emit('snooze', refToId(taskRef), nextMonday),
+    onTrigger: () => {
+      const d = new Date()
+      d.setDate(d.getDate() + (1 + 7 - d.getDay()) % 7 || 7)
+      emit('snooze', refToId(taskRef), d.toISOString().slice(0, 10))
+    },
   }
 }
 
