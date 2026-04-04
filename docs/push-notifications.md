@@ -259,11 +259,14 @@ The reminder push payload:
 
 ## Implementation Phases
 
-### Phase 1 — Foundation
-- [ ] Generate VAPID keys, add to `.env`
+### Phase 1 — Foundation ✓
+- [x] Generate VAPID keys, add to `.env` and `.env.example`
 - [ ] Create `push_subscriptions` CouchDB database
-- [ ] Switch vite-plugin-pwa to `injectManifest` strategy
-- [ ] Write `src/sw.ts` with `push` and `notificationclick` handlers
+- [x] Switch vite-plugin-pwa to `injectManifest` strategy
+- [x] Write `src/sw.ts` with `push` and `notificationclick` handlers
+
+> **Note:** `push_subscriptions` CouchDB database creation is deferred to Phase 3
+> when the push-server is scaffolded, as it requires server-side setup.
 
 ### Phase 2 — Client subscription
 - [ ] Implement `useNotifications.ts` composable
