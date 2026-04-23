@@ -22,7 +22,7 @@ services:
       - default
 
   push-server:
-    build: ../../push-server
+    build: ../push-server
     container_name: get-it-done-push
     restart: unless-stopped
     environment:
